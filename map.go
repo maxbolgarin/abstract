@@ -11,7 +11,7 @@ type Map[K comparable, V any] map[K]V
 
 // NewMap returns a [Map] with an empty map.
 func NewMap[K comparable, V any](raw ...map[K]V) Map[K, V] {
-	out := make(map[K]V)
+	out := make(map[K]V, getMapsLength(raw...))
 	for _, v := range raw {
 		for k, v := range v {
 			out[k] = v
@@ -144,7 +144,7 @@ type SafeMap[K comparable, V any] struct {
 // NewSafeMap returns a new [SafeMap] with empty map.
 func NewSafeMap[K comparable, V any](raw ...map[K]V) *SafeMap[K, V] {
 	out := &SafeMap[K, V]{
-		items: make(map[K]V),
+		items: make(map[K]V, getMapsLength(raw...)),
 	}
 	for _, v := range raw {
 		for k, v := range v {
@@ -335,4 +335,12 @@ func (m *SafeMap[K, V]) Refill(raw map[K]V) {
 	defer m.mu.Unlock()
 
 	m.items = lang.CopyMap(raw)
+}
+
+func getMapsLength[K comparable, V any](maps ...map[K]V) int {
+	length := 0
+	for _, m := range maps {
+		length += len(m)
+	}
+	return length
 }
