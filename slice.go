@@ -29,8 +29,8 @@ func (s *Slice[T]) Get(index int) T {
 }
 
 // Append adds a new element to the end of the slice.
-func (s *Slice[T]) Append(v T) {
-	*s = append(*s, v)
+func (s *Slice[T]) Append(v ...T) {
+	*s = append(*s, v...)
 }
 
 // Pop removes the last element of the slice and returns it.
@@ -113,6 +113,13 @@ func NewSafeSlice[T any](data ...[]T) *SafeSlice[T] {
 	return out
 }
 
+// NewSafeSliceWithSize returns a new [SafeSlice] with slice inited using the provided size.
+func NewSafeSliceWithSize[T any](size int) *SafeSlice[T] {
+	return &SafeSlice[T]{
+		items: make([]T, 0, size),
+	}
+}
+
 // Get returns the value for the provided key or the default type value if the key is not present in the slice.
 func (s *SafeSlice[T]) Get(index int) T {
 	s.mu.RLock()
@@ -126,11 +133,11 @@ func (s *SafeSlice[T]) Get(index int) T {
 }
 
 // Append adds a new element to the end of the slice.
-func (s *SafeSlice[T]) Append(v T) {
+func (s *SafeSlice[T]) Append(v ...T) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.items = append(s.items, v)
+	s.items = append(s.items, v...)
 }
 
 // Pop removes the last element of the slice and returns it.
