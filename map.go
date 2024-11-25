@@ -1,6 +1,10 @@
 package abstract
 
 import (
+	"crypto/rand"
+	"math/big"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/maxbolgarin/lang"
@@ -344,3 +348,474 @@ func getMapsLength[K comparable, V any](maps ...map[K]V) int {
 	}
 	return length
 }
+
+// Entity is an interface for an object that has an ID, a name, and an order.
+type Entity[K comparable] interface {
+	ID() K
+	Name() string
+	Order() int
+	SetOrder(int) Entity[K]
+}
+
+// EntityMap is a map of entities. It has all methods of Map with some new ones.
+// It is not safe for concurrent/parallel, use [SafeEntityMap] if you need it.
+type EntityMap[K comparable, T Entity[K]] struct {
+	Map[K, T]
+}
+
+// NewEntityMap returns a new EntityMap from the provided map.
+func NewEntityMap[K comparable, T Entity[K]](raw ...map[K]T) EntityMap[K, T] {
+	return EntityMap[K, T]{
+		Map: NewMap(raw...),
+	}
+}
+
+// NewEntityMapFromPairs returns a new EntityMap from the provided pairs.
+func NewEntityMapFromPairs[K comparable, T Entity[K]](pairs ...any) EntityMap[K, T] {
+	return EntityMap[K, T]{
+		Map: NewMapFromPairs[K, T](pairs...),
+	}
+}
+
+// NewEntityMapWithSize returns a new EntityMap with the provided size.
+func NewEntityMapWithSize[K comparable, T Entity[K]](size int) EntityMap[K, T] {
+	return EntityMap[K, T]{
+		Map: NewMapWithSize[K, T](size),
+	}
+}
+
+// LookupByName returns the value for the provided name.
+func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
+	name = strings.ToLower(name)
+
+	for _, h := range s.Map {
+		if strings.ToLower(h.Name()) == name {
+			return h, true
+		}
+	}
+
+	var zero T
+	return zero, false
+}
+
+// Set sets the value for the provided key.
+func (s *EntityMap[K, T]) Set(info T) {
+	if info.Order() == -1 {
+		s.Delete(info.ID())
+	}
+	s.Map[info.ID()] = info
+}
+
+// AllOrdered returns all values in order.
+func (s *EntityMap[K, T]) AllOrdered() []T {
+	var (
+		nOfItems   = len(s.Map)
+		out        = make([]T, nOfItems)
+		seen       = make([]bool, nOfItems)
+		broken     []T
+		seenBroken bool
+	)
+
+	for _, h := range s.Map {
+		order := h.Order()
+		if order < 0 || order >= nOfItems {
+			seenBroken = true
+			broken = append(broken, h)
+			continue
+		}
+		out[order] = h
+		seen[order] = true
+	}
+	if seenBroken {
+		sort.Slice(broken, func(i, j int) bool {
+			orderI := broken[i].Order()
+			orderJ := broken[j].Order()
+			if orderI < 0 || orderJ < 0 {
+				return orderI < orderJ
+			}
+			return orderI < orderJ
+		})
+		var i int
+		for ind, isFound := range seen {
+			if isFound {
+				continue
+			}
+			out[ind] = broken[i]
+			i++
+		}
+	}
+
+	return out
+}
+
+// NextOrder returns the next order.
+func (s EntityMap[K, T]) NextOrder() int {
+	return len(s.Map)
+}
+
+// ChangeOrder changes the order of the values.
+func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
+	ordered := s.AllOrdered()
+
+	maxOrder := len(draft)
+	for _, item := range ordered {
+		ord, ok := draft[item.ID()]
+		if !ok {
+			ord = maxOrder
+			maxOrder++
+		}
+
+		item, ok := item.SetOrder(ord).(T)
+		if !ok {
+			panic("you should use the same Entity type as return value from SetOrder")
+		}
+
+		s.Map[item.ID()] = item
+	}
+}
+
+// Delete deletes the value for the provided key.
+func (s EntityMap[K, T]) Delete(key K) bool {
+	toDelete, ok := s.Map[key]
+	if !ok {
+		return false
+	}
+
+	// if Deleted has -1 order
+	deleteOrder := toDelete.Order()
+	if deleteOrder == -1 {
+		delete(s.Map, key)
+		return true
+	}
+
+	ordered := s.AllOrdered()
+
+	var flag bool
+	for i, h := range ordered {
+		if i == deleteOrder {
+			delete(s.Map, key)
+			flag = true
+			continue
+		}
+		if i > deleteOrder {
+			h, ok = h.SetOrder(h.Order() - 1).(T)
+			if !ok {
+				panic("you should use the same Entity type as return value from SetOrder")
+			}
+		}
+		s.Map[h.ID()] = h
+	}
+
+	return flag
+}
+
+// SafeEntityMap is a thread-safe map of entities.
+// It is safe for concurrent/parallel use.
+type SafeEntityMap[K comparable, T Entity[K]] struct {
+	*SafeMap[K, T]
+}
+
+// NewSafeEntityMap returns a new SafeEntityMap from the provided map.
+func NewSafeEntityMap[K comparable, T Entity[K]](raw ...map[K]T) SafeEntityMap[K, T] {
+	return SafeEntityMap[K, T]{
+		SafeMap: NewSafeMap(raw...),
+	}
+}
+
+// NewSafeEntityMapFromPairs returns a new SafeEntityMap from the provided pairs.
+func NewSafeEntityMapFromPairs[K comparable, T Entity[K]](pairs ...any) SafeEntityMap[K, T] {
+	return SafeEntityMap[K, T]{
+		SafeMap: NewSafeMapFromPairs[K, T](pairs...),
+	}
+}
+
+// NewSafeEntityMapWithSize returns a new SafeEntityMap with the provided size.
+func NewSafeEntityMapWithSize[K comparable, T Entity[K]](size int) SafeEntityMap[K, T] {
+	return SafeEntityMap[K, T]{
+		SafeMap: NewSafeMapWithSize[K, T](size),
+	}
+}
+
+// LookupByName returns the value for the provided name.
+// It is safe for concurrent/parallel use.
+func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
+	name = strings.ToLower(name)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, h := range s.items {
+		if strings.ToLower(h.Name()) == name {
+			return h, true
+		}
+	}
+
+	var zero T
+	return zero, false
+}
+
+// Set sets the value for the provided key.
+// If the key is not present in the map, it will be added.
+// If the key is present and the value has order -1, the value will be deleted.
+// It is safe for concurrent/parallel use.
+func (s *SafeEntityMap[K, T]) Set(info T) {
+	if info.Order() == -1 {
+		s.Delete(info.ID())
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.items[info.ID()] = info
+}
+
+// AllOrdered returns all values in the map sorted by their order.
+// It is safe for concurrent/parallel use.
+func (s *SafeEntityMap[K, T]) AllOrdered() []T {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var (
+		nOfItems   = len(s.items)
+		out        = make([]T, nOfItems)
+		seen       = make([]bool, nOfItems)
+		broken     []T
+		seenBroken bool
+	)
+
+	for _, h := range s.items {
+		order := h.Order()
+		if order < 0 || order >= nOfItems {
+			seenBroken = true
+			broken = append(broken, h)
+			continue
+		}
+		out[order] = h
+		seen[order] = true
+	}
+	if seenBroken {
+		sort.Slice(broken, func(i, j int) bool {
+			orderI := broken[i].Order()
+			orderJ := broken[j].Order()
+			if orderI < 0 || orderJ < 0 {
+				return orderI < orderJ
+			}
+			return orderI < orderJ
+		})
+		var i int
+		for ind, isFound := range seen {
+			if isFound {
+				continue
+			}
+			out[ind] = broken[i]
+			i++
+		}
+	}
+
+	return out
+}
+
+// NextOrder returns the next order number.
+// It is safe for concurrent/parallel use.
+func (s SafeEntityMap[K, T]) NextOrder() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return len(s.items)
+}
+
+// ChangeOrder changes the order of the values in the map based on the provided map.
+// It is safe for concurrent/parallel use.
+func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
+	ordered := s.AllOrdered()
+
+	maxOrder := len(draft)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, item := range ordered {
+		ord, ok := draft[item.ID()]
+		if !ok {
+			ord = maxOrder
+			maxOrder++
+		}
+
+		item, ok = item.SetOrder(ord).(T)
+		if !ok {
+			panic("you should use the same Entity type as return value from SetOrder")
+		}
+
+		s.items[item.ID()] = item
+	}
+}
+
+// Delete deletes the value for the provided key.
+// If the value has order -1, the value will be deleted.
+// It is safe for concurrent/parallel use.
+func (s SafeEntityMap[K, T]) Delete(key K) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	toDelete, ok := s.items[key]
+	if !ok {
+		return false
+	}
+
+	// if Deleted has -1 order
+	deleteOrder := toDelete.Order()
+	if deleteOrder == -1 {
+		delete(s.items, key)
+		return true
+	}
+
+	ordered := s.AllOrdered()
+
+	var flag bool
+	for i, h := range ordered {
+		if i == deleteOrder {
+			delete(s.items, key)
+			flag = true
+			continue
+		}
+		if i > deleteOrder {
+			h, ok = h.SetOrder(h.Order() - 1).(T)
+			if !ok {
+				panic("you should use the same Entity type as return value from SetOrder")
+			}
+		}
+		s.items[h.ID()] = h
+	}
+
+	return flag
+}
+
+// OrderedPairs is a data structure that behaves like a map but remembers
+// the order in which the items were added. It is also possible to get a random
+// value or key from the structure. It allows duplicate keys.
+// It is NOT safe for concurrent/parallel use.
+//
+// The type parameter K must implement the Ordered interface.
+type OrderedPairs[K Ordered, V any] struct {
+	elems   []V
+	keys    []K
+	indexes map[K]int
+}
+
+// NewOrderedPairs creates a new OrderedPairs from the provided pairs. It allows duplicate keys.
+func NewOrderedPairs[K Ordered, V any](pairs ...any) *OrderedPairs[K, V] {
+	if len(pairs)%2 == 1 {
+		pairs = pairs[:len(pairs)-1]
+	}
+	m := &OrderedPairs[K, V]{
+		elems:   make([]V, 0, len(pairs)/2),
+		keys:    make([]K, 0, len(pairs)/2),
+		indexes: make(map[K]int, len(pairs)/2),
+	}
+	for i := 0; i < len(pairs)-1; i += 2 {
+		key := pairs[i].(K)
+		value := pairs[i+1].(V)
+		m.Add(key, value)
+	}
+	return m
+}
+
+// Add adds a key-value pair to the structure. It allows duplicate keys.
+func (m *OrderedPairs[K, V]) Add(key K, value V) {
+	if index, ok := m.indexes[key]; ok {
+		m.elems[index] = value
+	}
+	m.indexes[key] = len(m.elems)
+	m.elems = append(m.elems, value)
+	m.keys = append(m.keys, key)
+}
+
+// Get returns the value associated with the key.
+func (m *OrderedPairs[K, V]) Get(key K) (res V) {
+	if index, ok := m.indexes[key]; ok {
+		return m.elems[index]
+	}
+	return res
+}
+
+// Keys returns a slice of all keys in the structure.
+func (m *OrderedPairs[K, V]) Keys() []K {
+	return m.keys
+}
+
+// Rand returns a random value from the structure.
+func (m *OrderedPairs[K, V]) Rand() V {
+	if len(m.elems) == 0 {
+		return *new(V)
+	}
+	return m.elems[getRand(len(m.elems))]
+}
+
+// RandKey returns a random key from the structure.
+func (m *OrderedPairs[K, V]) RandKey() K {
+	if len(m.keys) == 0 {
+		return *new(K)
+	}
+	return m.keys[getRand(len(m.keys))]
+}
+
+func getRand(max int) int64 {
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		return 0
+	}
+	return nBig.Int64()
+}
+// SafeOrderedPairs is a thread-safe variant of the OrderedPairs type.
+// It uses a RW mutex to protect the underlying structure.
+//
+// The type parameter K must implement the Ordered interface.
+type SafeOrderedPairs[K Ordered, V any] struct {
+	*OrderedPairs[K, V]
+	mu sync.RWMutex
+}
+
+// NewSafeOrderedPairs returns a new SafeOrderedPairs from the provided pairs.
+// It is a thread-safe variant of the NewOrderedPairs function.
+func NewSafeOrderedPairs[K Ordered, V any](pairs ...any) *SafeOrderedPairs[K, V] {
+	return &SafeOrderedPairs[K, V]{
+		OrderedPairs: NewOrderedPairs[K, V](pairs...),
+	}
+}
+
+// Add adds a key-value pair to the structure. It allows duplicate keys.
+// It is a thread-safe variant of the Add method.
+func (s *SafeOrderedPairs[K, V]) Add(key K, value V) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.Add(key, value)
+}
+
+// Get returns the value associated with the key.
+// It is a thread-safe variant of the Get method.
+func (s *SafeOrderedPairs[K, V]) Get(key K) (res V) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Get(key)
+}
+
+// Rand returns a random value from the structure.
+// It is a thread-safe variant of the Rand method.
+func (s *SafeOrderedPairs[K, V]) Rand() V {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.Rand()
+}
+
+// RandKey returns a random key from the structure.
+// It is a thread-safe variant of the RandKey method.
+func (s *SafeOrderedPairs[K, V]) RandKey() K {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.RandKey()
+}
+
