@@ -45,6 +45,11 @@ func (m *Set[K]) Has(key K) bool {
 	return ok
 }
 
+// Delete removes the key from the set, does nothing if the key is not present in the set.
+func (m *Set[K]) Delete(key K) {
+	delete(m.items, key)
+}
+
 // Len returns the length of the set.
 func (m *Set[K]) Len() int {
 	return len(m.items)
@@ -100,6 +105,13 @@ func NewSafeSet[K comparable](data ...[]K) *SafeSet[K] {
 		}
 	}
 	return out
+}
+
+// NewSafeSetWithSize returns a new [SafeSet] with empty set.
+func NewSafeSetWithSize[K comparable](size int) *SafeSet[K] {
+	return &SafeSet[K]{
+		set: make(map[K]struct{}, size),
+	}
 }
 
 // Add adds keys to the set. It is safe for concurrent/parallel use.
