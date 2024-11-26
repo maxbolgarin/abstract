@@ -370,13 +370,6 @@ func NewEntityMap[K comparable, T Entity[K]](raw ...map[K]T) EntityMap[K, T] {
 	}
 }
 
-// NewEntityMapFromPairs returns a new EntityMap from the provided pairs.
-func NewEntityMapFromPairs[K comparable, T Entity[K]](pairs ...any) EntityMap[K, T] {
-	return EntityMap[K, T]{
-		Map: NewMapFromPairs[K, T](pairs...),
-	}
-}
-
 // NewEntityMapWithSize returns a new EntityMap with the provided size.
 func NewEntityMapWithSize[K comparable, T Entity[K]](size int) EntityMap[K, T] {
 	return EntityMap[K, T]{
@@ -398,10 +391,11 @@ func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
 	return zero, false
 }
 
-// Set sets the value for the provided key.
+// Set sets the value for the provided key. It delete the value if the order is -1.
 func (s *EntityMap[K, T]) Set(info T) {
 	if info.Order() == -1 {
 		s.Delete(info.ID())
+		return
 	}
 	s.Map[info.ID()] = info
 }
@@ -522,13 +516,6 @@ func NewSafeEntityMap[K comparable, T Entity[K]](raw ...map[K]T) SafeEntityMap[K
 	}
 }
 
-// NewSafeEntityMapFromPairs returns a new SafeEntityMap from the provided pairs.
-func NewSafeEntityMapFromPairs[K comparable, T Entity[K]](pairs ...any) SafeEntityMap[K, T] {
-	return SafeEntityMap[K, T]{
-		SafeMap: NewSafeMapFromPairs[K, T](pairs...),
-	}
-}
-
 // NewSafeEntityMapWithSize returns a new SafeEntityMap with the provided size.
 func NewSafeEntityMapWithSize[K comparable, T Entity[K]](size int) SafeEntityMap[K, T] {
 	return SafeEntityMap[K, T]{
@@ -561,6 +548,7 @@ func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
 func (s *SafeEntityMap[K, T]) Set(info T) {
 	if info.Order() == -1 {
 		s.Delete(info.ID())
+		return
 	}
 
 	s.mu.Lock()
@@ -654,10 +642,10 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 // If the value has order -1, the value will be deleted.
 // It is safe for concurrent/parallel use.
 func (s SafeEntityMap[K, T]) Delete(key K) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	s.mu.RLock()
 	toDelete, ok := s.items[key]
+	s.mu.RUnlock()
+
 	if !ok {
 		return false
 	}
@@ -665,11 +653,17 @@ func (s SafeEntityMap[K, T]) Delete(key K) bool {
 	// if Deleted has -1 order
 	deleteOrder := toDelete.Order()
 	if deleteOrder == -1 {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
 		delete(s.items, key)
 		return true
 	}
 
 	ordered := s.AllOrdered()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	var flag bool
 	for i, h := range ordered {
@@ -766,6 +760,7 @@ func getRand(max int) int64 {
 	}
 	return nBig.Int64()
 }
+
 // SafeOrderedPairs is a thread-safe variant of the OrderedPairs type.
 // It uses a RW mutex to protect the underlying structure.
 //
@@ -789,7 +784,7 @@ func (s *SafeOrderedPairs[K, V]) Add(key K, value V) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.Add(key, value)
+	s.OrderedPairs.Add(key, value)
 }
 
 // Get returns the value associated with the key.
@@ -798,7 +793,7 @@ func (s *SafeOrderedPairs[K, V]) Get(key K) (res V) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.Get(key)
+	return s.OrderedPairs.Get(key)
 }
 
 // Rand returns a random value from the structure.
@@ -807,7 +802,7 @@ func (s *SafeOrderedPairs[K, V]) Rand() V {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.Rand()
+	return s.OrderedPairs.Rand()
 }
 
 // RandKey returns a random key from the structure.
@@ -816,6 +811,5 @@ func (s *SafeOrderedPairs[K, V]) RandKey() K {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.RandKey()
+	return s.OrderedPairs.RandKey()
 }
-
