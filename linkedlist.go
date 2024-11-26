@@ -43,8 +43,8 @@ func (l *LinkedList[T]) Len() int {
 	return l.len
 }
 
-// InsertFront adds an element to the front of the linked list.
-func (l *LinkedList[T]) InsertFront(data T) {
+// PushFront adds an element to the front of the linked list.
+func (l *LinkedList[T]) PushFront(data T) {
 	l.insert(data, func(l *LinkedList[T], newNode *node[T]) {
 		if l.head != nil {
 			l.head.next = newNode
@@ -54,8 +54,8 @@ func (l *LinkedList[T]) InsertFront(data T) {
 	})
 }
 
-// InsertBack adds an element to the back of the linked list.
-func (l *LinkedList[T]) InsertBack(data T) {
+// PushBack adds an element to the back of the linked list.
+func (l *LinkedList[T]) PushBack(data T) {
 	l.insert(data, func(l *LinkedList[T], newNode *node[T]) {
 		if l.tail != nil {
 			l.tail.prev = newNode
@@ -159,20 +159,20 @@ func (l *SafeLinkedList[T]) Len() int {
 	return l.LinkedList.Len()
 }
 
-// InsertFront adds an element to the front of the linked list.
+// PushFront adds an element to the front of the linked list.
 // It is safe for concurrent/parallel use.
-func (l *SafeLinkedList[T]) InsertFront(data T) {
+func (l *SafeLinkedList[T]) PushFront(data T) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.LinkedList.InsertFront(data)
+	l.LinkedList.PushFront(data)
 }
 
-// InsertBack adds an element to the back of the linked list.
+// PushBack adds an element to the back of the linked list.
 // It is safe for concurrent/parallel use.
-func (l *SafeLinkedList[T]) InsertBack(data T) {
+func (l *SafeLinkedList[T]) PushBack(data T) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.LinkedList.InsertBack(data)
+	l.LinkedList.PushBack(data)
 }
 
 // PopFront removes an element from the front of the linked list and returns it.

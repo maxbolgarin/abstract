@@ -11,7 +11,7 @@ func TestLinkedList(t *testing.T) {
 		l := abstract.NewLinkedList[int]()
 
 		for i := 1; i <= 10; i++ {
-			l.InsertBack(i)
+			l.PushBack(i)
 		}
 		if l.Len() != 10 {
 			t.Fatalf("expected 10, got %d", l.Len())
@@ -63,7 +63,7 @@ func TestLinkedList(t *testing.T) {
 		l := abstract.NewLinkedList[int]()
 
 		for i := 1; i <= 10; i++ {
-			l.InsertFront(i)
+			l.PushFront(i)
 		}
 		if l.Len() != 10 {
 			t.Fatalf("expected 10, got %d", l.Len())
@@ -117,7 +117,7 @@ func TestSafeLinkedList(t *testing.T) {
 		l := abstract.NewSafeLinkedList[int]()
 
 		for i := 1; i <= 10; i++ {
-			l.InsertBack(i)
+			l.PushBack(i)
 		}
 		if l.Len() != 10 {
 			t.Fatalf("expected 10, got %d", l.Len())
@@ -169,7 +169,7 @@ func TestSafeLinkedList(t *testing.T) {
 		l := abstract.NewSafeLinkedList[int]()
 
 		for i := 1; i <= 10; i++ {
-			l.InsertFront(i)
+			l.PushFront(i)
 		}
 		if l.Len() != 10 {
 			t.Fatalf("expected 10, got %d", l.Len())
