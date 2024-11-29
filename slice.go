@@ -88,12 +88,13 @@ func (s *Slice[T]) Transform(f func(T) T) {
 }
 
 // Range calls the provided function for each element in the slice.
-func (s *Slice[T]) Range(f func(T) bool) {
+func (s *Slice[T]) Range(f func(T) bool) bool {
 	for _, v := range *s {
 		if !f(v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // SafeSlice is used like a common slice, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -221,15 +222,16 @@ func (s *SafeSlice[T]) Transform(f func(T) T) {
 }
 
 // Range calls the provided function for each element in the slice.
-func (s *SafeSlice[T]) Range(f func(T) bool) {
+func (s *SafeSlice[T]) Range(f func(T) bool) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for _, v := range s.items {
 		if !f(v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 func getSlicesLen[T any](slices ...[]T) int {

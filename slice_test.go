@@ -102,9 +102,26 @@ func TestSlice(t *testing.T) {
 	if slice.Len() != 2 {
 		t.Errorf("expected length 2, got %d", slice.Len())
 	}
-	slice.Range(func(x int) bool {
+	var i int
+	if !slice.Range(func(x int) bool {
+		i++
+		return true
+	}) {
+		t.Error("expected Range to return true")
+	}
+	if i != 2 {
+		t.Errorf("expected Range to iterate 2 times, got %d", i)
+	}
+	i = 0
+	if slice.Range(func(x int) bool {
+		i++
 		return false
-	})
+	}) {
+		t.Error("expected Range to return false")
+	}
+	if i != 1 {
+		t.Errorf("expected Range to iterate 1 time, got %d", i)
+	}
 }
 
 // TestSafeSlice tests all methods for the SafeSlice type with concurrency.
@@ -197,9 +214,26 @@ func TestSafeSlice(t *testing.T) {
 	if slice.Len() != 2 {
 		t.Errorf("expected length 2, got %d", slice.Len())
 	}
-	slice.Range(func(x int) bool {
+	var i int
+	if !slice.Range(func(x int) bool {
+		i++
+		return true
+	}) {
+		t.Error("expected Range to return true")
+	}
+	if i != 2 {
+		t.Errorf("expected Range to iterate 2 times, got %d", i)
+	}
+	i = 0
+	if slice.Range(func(x int) bool {
+		i++
 		return false
-	})
+	}) {
+		t.Error("expected Range to return false")
+	}
+	if i != 1 {
+		t.Errorf("expected Range to iterate 1 time, got %d", i)
+	}
 	if slice.Get(590) != 0 {
 		t.Errorf("expected default zero value, got %d", slice.Get(590))
 	}
