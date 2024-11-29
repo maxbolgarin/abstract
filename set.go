@@ -80,12 +80,13 @@ func (m *Set[K]) Transform(f func(K) K) {
 }
 
 // Range calls the provided function for each key in the set.
-func (m *Set[K]) Range(f func(K) bool) {
+func (m *Set[K]) Range(f func(K) bool) bool {
 	for k := range m.items {
 		if !f(k) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // SafeSet is used like a set, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -185,12 +186,13 @@ func (m *SafeSet[K]) Transform(f func(K) K) {
 }
 
 // Range calls the provided function for each key in the set. It is safe for concurrent/parallel use.
-func (m *SafeSet[K]) Range(f func(K) bool) {
+func (m *SafeSet[K]) Range(f func(K) bool) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for k := range m.set {
 		if !f(k) {
-			return
+			return false
 		}
 	}
+	return true
 }

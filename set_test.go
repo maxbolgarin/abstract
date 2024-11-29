@@ -73,7 +73,7 @@ func TestSetTransform(t *testing.T) {
 func TestSetRange(t *testing.T) {
 	s := abstract.NewSetWithSize[int](3)
 	s.Add(1, 2, 3)
-	s.Range(func(k int) bool {
+	if s.Range(func(k int) bool {
 		if k == 3 {
 			return false
 		}
@@ -81,7 +81,15 @@ func TestSetRange(t *testing.T) {
 			t.Errorf("Set should iterate over all elements, got %d", k)
 		}
 		return true
-	})
+	}) {
+		t.Error("Expected Range to return false, but got true")
+	}
+
+	if !s.Range(func(k int) bool {
+		return true
+	}) {
+		t.Error("Expected Range to return true, but got false")
+	}
 }
 
 // TestNewSafeSet tests creating a SafeSet and concurrent use.
@@ -140,7 +148,7 @@ func TestSafeSetConcurrency(t *testing.T) {
 func TestSafeSetRange(t *testing.T) {
 	s := abstract.NewSafeSetWithSize[int](3)
 	s.Add(1, 2, 3)
-	s.Range(func(k int) bool {
+	if s.Range(func(k int) bool {
 		if k == 3 {
 			return false
 		}
@@ -148,7 +156,15 @@ func TestSafeSetRange(t *testing.T) {
 			t.Errorf("SafeSet should iterate over all elements, got %d", k)
 		}
 		return true
-	})
+	}) {
+		t.Error("Expected Range to return false, but got true")
+	}
+
+	if !s.Range(func(k int) bool {
+		return true
+	}) {
+		t.Error("Expected Range to return true, but got false")
+	}
 }
 
 // TestSafeSetClear tests clearing the SafeSet.
