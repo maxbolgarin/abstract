@@ -174,7 +174,7 @@ func TestRange(t *testing.T) {
 	m.Set("key1", 1)
 	m.Set("key2", 2)
 
-	m.Range(func(k string, v int) bool {
+	if m.Range(func(k string, v int) bool {
 		if k != "key1" && k != "key2" {
 			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
 		}
@@ -182,7 +182,15 @@ func TestRange(t *testing.T) {
 			return false
 		}
 		return true
-	})
+	}) {
+		t.Error("Expected Range to return false, but got true")
+	}
+
+	if !m.Range(func(k string, v int) bool {
+		return true
+	}) {
+		t.Error("Expected Range to return true, but got false")
+	}
 }
 
 func TestCopy(t *testing.T) {
@@ -427,7 +435,7 @@ func TestSafeMap_Range(t *testing.T) {
 	m.Set("key1", 1)
 	m.Set("key2", 2)
 
-	m.Range(func(k string, v int) bool {
+	if m.Range(func(k string, v int) bool {
 		if k != "key1" && k != "key2" {
 			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
 		}
@@ -435,7 +443,15 @@ func TestSafeMap_Range(t *testing.T) {
 			return false
 		}
 		return true
-	})
+	}) {
+		t.Error("Expected Range to return false, but got true")
+	}
+
+	if !m.Range(func(k string, v int) bool {
+		return true
+	}) {
+		t.Error("Expected Range to return true, but got false")
+	}
 }
 
 func TestSafeMap_Copy(t *testing.T) {

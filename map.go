@@ -126,12 +126,13 @@ func (m Map[K, V]) Transform(f func(K, V) V) {
 }
 
 // Range calls the provided function for each key-value pair in the map.
-func (m Map[K, V]) Range(f func(K, V) bool) {
+func (m Map[K, V]) Range(f func(K, V) bool) bool {
 	for k, v := range m {
 		if !f(k, v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // Copy returns another map that is a copy of the underlying map.
@@ -306,15 +307,16 @@ func (m *SafeMap[K, V]) Transform(upd func(K, V) V) {
 }
 
 // Range calls the provided function for each key-value pair in the map. It is safe for concurrent/parallel use.
-func (m *SafeMap[K, V]) Range(f func(K, V) bool) {
+func (m *SafeMap[K, V]) Range(f func(K, V) bool) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	for k, v := range m.items {
 		if !f(k, v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 // Copy returns a new map that is a copy of the underlying map. It is safe for concurrent/parallel use.
