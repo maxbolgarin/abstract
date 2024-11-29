@@ -239,7 +239,7 @@ func TestSafeSlice(t *testing.T) {
 	}
 
 	slice2 := slice.Copy()
-	if slice2.Len() != 2 {
-		t.Errorf("expected length 2, got %d", slice2.Len())
+	if len(slice2) != 2 {
+		t.Errorf("expected length 2, got %d", len(slice2))
 	}
 }

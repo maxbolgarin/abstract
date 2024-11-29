@@ -202,13 +202,11 @@ func (s *SafeSlice[T]) Clear() {
 }
 
 // Copy returns a copy of the slice.
-func (s *SafeSlice[T]) Copy() *SafeSlice[T] {
+func (s *SafeSlice[T]) Copy() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return &SafeSlice[T]{
-		items: append(make([]T, 0, len(s.items)), s.items...),
-	}
+	return append(make([]T, 0, len(s.items)), s.items...)
 }
 
 // Transform transforms all values of the slice using provided function.
