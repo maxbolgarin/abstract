@@ -14,6 +14,11 @@ func NewSlice[T any](data ...[]T) Slice[T] {
 	return out
 }
 
+// NewSliceFromItems returns a new [Slice] with the provided items.
+func NewSliceFromItems[T any](data ...T) Slice[T] {
+	return data
+}
+
 // NewSliceWithSize returns a new [Slice] with slice inited using the provided size.
 func NewSliceWithSize[T any](size int) Slice[T] {
 	return make([]T, 0, size)
@@ -112,6 +117,13 @@ func NewSafeSlice[T any](data ...[]T) *SafeSlice[T] {
 		out.items = append(out.items, v...)
 	}
 	return out
+}
+
+// NewSafeSliceFromItems returns a new [SafeSlice] with the provided items.
+func NewSafeSliceFromItems[T any](data ...T) *SafeSlice[T] {
+	return &SafeSlice[T]{
+		items: data,
+	}
 }
 
 // NewSafeSliceWithSize returns a new [SafeSlice] with slice inited using the provided size.

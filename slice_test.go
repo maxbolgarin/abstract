@@ -77,7 +77,7 @@ func TestSlice(t *testing.T) {
 		t.Errorf("expected sum 14, got %d", sum)
 	}
 
-	slice = abstract.NewSlice[int]([]int{1, 2, 3})
+	slice = abstract.NewSlice([]int{1, 2, 3})
 	slice.Transform(func(x int) int { return x * 2 })
 	if slice.Get(0) != 2 || slice.Get(1) != 4 || slice.Get(2) != 6 {
 		t.Error("expected transformed elements to match original slice")
@@ -121,6 +121,14 @@ func TestSlice(t *testing.T) {
 	}
 	if i != 1 {
 		t.Errorf("expected Range to iterate 1 time, got %d", i)
+	}
+	slice = abstract.NewSliceFromItems(1, 2, 3)
+	if slice.Len() != 3 {
+		t.Errorf("expected length 3, got %d", slice.Len())
+	}
+	slice.Transform(func(x int) int { return x * 2 })
+	if slice.Get(0) != 2 || slice.Get(1) != 4 || slice.Get(2) != 6 {
+		t.Error("expected transformed elements to match original slice")
 	}
 }
 
@@ -241,5 +249,14 @@ func TestSafeSlice(t *testing.T) {
 	slice2 := slice.Copy()
 	if len(slice2) != 2 {
 		t.Errorf("expected length 2, got %d", len(slice2))
+	}
+
+	slice3 := abstract.NewSafeSliceFromItems(1, 2, 3)
+	if slice3.Len() != 3 {
+		t.Errorf("expected length 3, got %d", slice3.Len())
+	}
+	slice3.Transform(func(x int) int { return x * 2 })
+	if slice3.Get(0) != 2 || slice3.Get(1) != 4 || slice3.Get(2) != 6 {
+		t.Error("expected transformed elements to match original slice")
 	}
 }
