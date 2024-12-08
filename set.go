@@ -12,7 +12,7 @@ type Set[K comparable] struct {
 	items map[K]struct{}
 }
 
-// NewSet returns a [Set] with an empty map.
+// NewSet returns a [Set] inited using the provided data.
 func NewSet[K comparable](data ...[]K) *Set[K] {
 	out := &Set[K]{
 		items: make(map[K]struct{}, getSlicesLen(data...)),
@@ -21,6 +21,17 @@ func NewSet[K comparable](data ...[]K) *Set[K] {
 		for _, v := range v {
 			out.items[v] = struct{}{}
 		}
+	}
+	return out
+}
+
+// NewSetFromItems returns a [Set] inited using the provided data.
+func NewSetFromItems[K comparable](data ...K) *Set[K] {
+	out := &Set[K]{
+		items: make(map[K]struct{}, len(data)),
+	}
+	for _, v := range data {
+		out.items[v] = struct{}{}
 	}
 	return out
 }
@@ -104,6 +115,17 @@ func NewSafeSet[K comparable](data ...[]K) *SafeSet[K] {
 		for _, v := range v {
 			out.set[v] = struct{}{}
 		}
+	}
+	return out
+}
+
+// NewSafeSetFromItems returns a new [SafeSet] with empty set.
+func NewSafeSetFromItems[K comparable](data ...K) *SafeSet[K] {
+	out := &SafeSet[K]{
+		set: make(map[K]struct{}, len(data)),
+	}
+	for _, v := range data {
+		out.set[v] = struct{}{}
 	}
 	return out
 }

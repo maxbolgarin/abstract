@@ -42,8 +42,7 @@ func TestNewSet(t *testing.T) {
 
 // TestSetClear tests clearing the Set.
 func TestSetClear(t *testing.T) {
-	s := abstract.NewSet[int](nil)
-	s.Add(1, 2, 3)
+	s := abstract.NewSetFromItems(1, 2, 3)
 	s.Clear()
 
 	if !s.IsEmpty() {
@@ -56,7 +55,7 @@ func TestSetClear(t *testing.T) {
 
 // TestSetTransform tests transforming the Set.
 func TestSetTransform(t *testing.T) {
-	s := abstract.NewSet[int]([]int{1, 2, 3})
+	s := abstract.NewSet([]int{1, 2, 3})
 	s.Transform(func(k int) int {
 		return k * 2
 	})
@@ -182,7 +181,19 @@ func TestSafeSetClear(t *testing.T) {
 
 // TestSafeSetTransform tests transforming the SafeSet.
 func TestSafeSetTransform(t *testing.T) {
-	s := abstract.NewSafeSet[int]([]int{1, 2, 3})
+	s := abstract.NewSafeSet([]int{1, 2, 3})
+	s.Transform(func(k int) int {
+		return k * 2
+	})
+
+	if !s.Has(2) || !s.Has(4) || !s.Has(6) {
+		t.Error("SafeSet should transform its elements correctly")
+	}
+	if s.Has(1) || s.Has(3) {
+		t.Error("SafeSet should not have old values after transform")
+	}
+
+	s = abstract.NewSafeSetFromItems(1, 2, 3)
 	s.Transform(func(k int) int {
 		return k * 2
 	})
