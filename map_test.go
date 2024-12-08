@@ -503,15 +503,15 @@ type testEntity struct {
 	order int
 }
 
-func (e *testEntity) ID() int {
+func (e *testEntity) GetID() int {
 	return e.id
 }
 
-func (e *testEntity) Name() string {
+func (e *testEntity) GetName() string {
 	return e.name
 }
 
-func (e *testEntity) Order() int {
+func (e *testEntity) GetOrder() int {
 	return e.order
 }
 
@@ -615,8 +615,8 @@ func TestEntityMap_ChangeOrder(t *testing.T) {
 	ordered := m.AllOrdered()
 
 	for i := range expectedOrder {
-		if ordered[i].Order() != newOrders[ordered[i].ID()] {
-			t.Errorf("Expected order for %v to be %d, got %d", ordered[i].Name(), newOrders[ordered[i].ID()], ordered[i].Order())
+		if ordered[i].GetOrder() != newOrders[ordered[i].GetID()] {
+			t.Errorf("Expected order for %v to be %d, got %d", ordered[i].GetName(), newOrders[ordered[i].GetID()], ordered[i].GetOrder())
 		}
 	}
 }
@@ -655,8 +655,8 @@ func TestEntityMap_Delete(t *testing.T) {
 		t.Error("Expected the entity to be deleted")
 	}
 
-	if m.AllOrdered()[1].Name() != "Entity1" {
-		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].Name())
+	if m.AllOrdered()[1].GetName() != "Entity1" {
+		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].GetName())
 	}
 }
 
@@ -755,8 +755,8 @@ func TestSafeEntityMap_ChangeOrder(t *testing.T) {
 	ordered := m.AllOrdered()
 
 	for i := range expectedOrder {
-		if ordered[i].Order() != newOrders[ordered[i].ID()] {
-			t.Errorf("Expected order for %v to be %d, got %d", ordered[i].Name(), newOrders[ordered[i].ID()], ordered[i].Order())
+		if ordered[i].GetOrder() != newOrders[ordered[i].GetID()] {
+			t.Errorf("Expected order for %v to be %d, got %d", ordered[i].GetName(), newOrders[ordered[i].GetID()], ordered[i].GetOrder())
 		}
 	}
 }
@@ -795,8 +795,8 @@ func TestSafeEntityMap_Delete(t *testing.T) {
 		t.Error("Expected the entity to be deleted")
 	}
 
-	if m.AllOrdered()[1].Name() != "Entity1" {
-		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].Name())
+	if m.AllOrdered()[1].GetName() != "Entity1" {
+		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].GetName())
 	}
 }
 
