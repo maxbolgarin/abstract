@@ -397,7 +397,8 @@ func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
 // Set sets the value for the provided key.
 // It sets last order to the entity's order, so it adds to the end of the list.
 // It sets the same order of existing entity in case of conflict.
-func (s *EntityMap[K, T]) Set(info T) {
+// It returns the order of the entity.
+func (s *EntityMap[K, T]) Set(info T) int {
 	id := info.GetID()
 	old, ok := s.Map[id]
 	if ok {
@@ -406,12 +407,16 @@ func (s *EntityMap[K, T]) Set(info T) {
 		info = info.SetOrder(len(s.Map)).(T)
 	}
 	s.Map[id] = info
+
+	return info.GetOrder()
 }
 
 // SetManualOrder sets the value for the provided key.
 // Better to use [EntityMap.Set] to prevent from order errors.
-func (s *EntityMap[K, T]) SetManualOrder(info T) {
+// It returns the order of the entity.
+func (s *EntityMap[K, T]) SetManualOrder(info T) int {
 	s.Map[info.GetID()] = info
+	return info.GetOrder()
 }
 
 // AllOrdered returns all values in order.
@@ -545,8 +550,9 @@ func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
 // If the key is not present in the map, it will be added.
 // It sets last order to the entity's order.
 // It sets the same order of existing entity in case of conflict.
+// It returns the order of the entity.
 // It is safe for concurrent/parallel use.
-func (s *SafeEntityMap[K, T]) Set(info T) {
+func (s *SafeEntityMap[K, T]) Set(info T) int {
 	id := info.GetID()
 
 	s.mu.Lock()
@@ -559,16 +565,21 @@ func (s *SafeEntityMap[K, T]) Set(info T) {
 		info = info.SetOrder(len(s.items)).(T)
 	}
 	s.items[id] = info
+
+	return info.GetOrder()
 }
 
 // SetManualOrder sets the value for the provided key.
 // Better to use [SafeEntityMap.Set] to prevent from order errors.
+// It returns the order of the entity.
 // It is safe for concurrent/parallel use.
-func (s *SafeEntityMap[K, T]) SetManualOrder(info T) {
+func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.items[info.GetID()] = info
+
+	return info.GetOrder()
 }
 
 // AllOrdered returns all values in the map sorted by their order.

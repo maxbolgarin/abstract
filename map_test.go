@@ -535,7 +535,10 @@ func TestEntityMap_SetAndGet(t *testing.T) {
 	if got := m.Get(1); got != entity {
 		t.Errorf("Expected %v, got %v", entity, got)
 	}
-	m.Set(&testEntity{id: 2, name: "Entity2"})
+	order := m.Set(&testEntity{id: 2, name: "Entity2"})
+	if order != 1 {
+		t.Errorf("Expected order to be 1, got %d", order)
+	}
 	if got := m.Get(2); got.order != 1 {
 		t.Errorf("Expected order to be 1, got %d", got.order)
 	}
@@ -551,7 +554,10 @@ func TestEntityMap_SetManualOrderAndGet(t *testing.T) {
 	Entity2 := &testEntity{id: 2, name: "Entity2"}
 	Entity3 := &testEntity{id: 3, name: "Entity3"}
 
-	m.SetManualOrder(Entity1)
+	order := m.SetManualOrder(Entity1)
+	if order != 0 {
+		t.Errorf("Expected order to be 0, got %d", order)
+	}
 	if got := m.Get(1); got != Entity1 {
 		t.Errorf("Expected %v, got %v", Entity1, got)
 	}
@@ -703,7 +709,10 @@ func TestSafeEntityMap_SetAndGet(t *testing.T) {
 	}
 	entity = &testEntity{id: 1, name: "Entity1", order: -1}
 
-	m.Set(entity)
+	order := m.Set(entity)
+	if order != 0 {
+		t.Error("Expected order to be 0")
+	}
 	if got := m.Get(1); got.order != 0 {
 		t.Errorf("Expected order to be 0, got %d", got.order)
 	}
@@ -715,7 +724,10 @@ func TestSafeEntityMap_SetManualOrderAndGet(t *testing.T) {
 	Entity2 := &testEntity{id: 2, name: "Entity2"}
 	Entity3 := &testEntity{id: 3, name: "Entity3"}
 
-	m.SetManualOrder(Entity1)
+	order := m.SetManualOrder(Entity1)
+	if order != 0 {
+		t.Error("Expected order to be 0")
+	}
 	if got := m.Get(1); got != Entity1 {
 		t.Errorf("Expected %v, got %v", Entity1, got)
 	}
