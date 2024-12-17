@@ -529,17 +529,43 @@ func TestEntityMap_NewEntityMap(t *testing.T) {
 
 func TestEntityMap_SetAndGet(t *testing.T) {
 	m := abstract.NewEntityMapWithSize[int, *testEntity](10)
-	entity := &testEntity{id: 1, name: "Entity1", order: 0}
+	entity := &testEntity{id: 1, name: "Entity1"}
 
 	m.Set(entity)
 	if got := m.Get(1); got != entity {
 		t.Errorf("Expected %v, got %v", entity, got)
 	}
-	entity.order = -1
-
+	m.Set(&testEntity{id: 2, name: "Entity2"})
+	if got := m.Get(2); got.order != 1 {
+		t.Errorf("Expected order to be 1, got %d", got.order)
+	}
 	m.Set(entity)
-	if got := m.Get(1); got == entity {
-		t.Errorf("Expected empty entity, got %v", got)
+	if got := m.Get(1); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+}
+
+func TestEntityMap_SetManualOrderAndGet(t *testing.T) {
+	m := abstract.NewEntityMapWithSize[int, *testEntity](10)
+	Entity1 := &testEntity{id: 1, name: "Entity1"}
+	Entity2 := &testEntity{id: 2, name: "Entity2"}
+	Entity3 := &testEntity{id: 3, name: "Entity3"}
+
+	m.SetManualOrder(Entity1)
+	if got := m.Get(1); got != Entity1 {
+		t.Errorf("Expected %v, got %v", Entity1, got)
+	}
+	m.SetManualOrder(Entity2)
+	if got := m.Get(2); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+	m.SetManualOrder(Entity3)
+	if got := m.Get(2); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+	ordered := m.AllOrdered()
+	if len(ordered) != 3 {
+		t.Errorf("Expected 3 entities, got %d", len(ordered))
 	}
 }
 
@@ -570,7 +596,7 @@ func TestEntityMap_AllOrdered(t *testing.T) {
 		m.Set(e)
 	}
 
-	expectedOrder := []*testEntity{entities[1], entities[2], entities[0]}
+	expectedOrder := []*testEntity{entities[0], entities[1], entities[2]}
 	ordered := m.AllOrdered()
 
 	for i, e := range expectedOrder {
@@ -655,8 +681,8 @@ func TestEntityMap_Delete(t *testing.T) {
 		t.Error("Expected the entity to be deleted")
 	}
 
-	if m.AllOrdered()[1].GetName() != "Entity1" {
-		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].GetName())
+	if m.AllOrdered()[1].GetName() != "Entity3" {
+		t.Errorf("Expected Entity3 at position 1, got %s", m.AllOrdered()[1].GetName())
 	}
 }
 
@@ -675,11 +701,35 @@ func TestSafeEntityMap_SetAndGet(t *testing.T) {
 	if got := m.Get(1); got != entity {
 		t.Errorf("Expected %v, got %v", entity, got)
 	}
-	entity.order = -1
+	entity = &testEntity{id: 1, name: "Entity1", order: -1}
 
 	m.Set(entity)
-	if got := m.Get(1); got == entity {
-		t.Errorf("Expected empty entity, got %v", got)
+	if got := m.Get(1); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+}
+
+func TestSafeEntityMap_SetManualOrderAndGet(t *testing.T) {
+	m := abstract.NewSafeEntityMapWithSize[int, *testEntity](10)
+	Entity1 := &testEntity{id: 1, name: "Entity1"}
+	Entity2 := &testEntity{id: 2, name: "Entity2"}
+	Entity3 := &testEntity{id: 3, name: "Entity3"}
+
+	m.SetManualOrder(Entity1)
+	if got := m.Get(1); got != Entity1 {
+		t.Errorf("Expected %v, got %v", Entity1, got)
+	}
+	m.SetManualOrder(Entity2)
+	if got := m.Get(2); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+	m.SetManualOrder(Entity3)
+	if got := m.Get(2); got.order != 0 {
+		t.Errorf("Expected order to be 0, got %d", got.order)
+	}
+	ordered := m.AllOrdered()
+	if len(ordered) != 3 {
+		t.Errorf("Expected 3 entities, got %d", len(ordered))
 	}
 }
 
@@ -710,7 +760,7 @@ func TestSafeEntityMap_AllOrdered(t *testing.T) {
 		m.Set(e)
 	}
 
-	expectedOrder := []*testEntity{entities[1], entities[2], entities[0]}
+	expectedOrder := []*testEntity{entities[0], entities[1], entities[2]}
 	ordered := m.AllOrdered()
 
 	for i, e := range expectedOrder {
@@ -795,8 +845,8 @@ func TestSafeEntityMap_Delete(t *testing.T) {
 		t.Error("Expected the entity to be deleted")
 	}
 
-	if m.AllOrdered()[1].GetName() != "Entity1" {
-		t.Errorf("Expected Entity1 at position 1, got %s", m.AllOrdered()[1].GetName())
+	if m.AllOrdered()[1].GetName() != "Entity3" {
+		t.Errorf("Expected Entity3 at position 1, got %s", m.AllOrdered()[1].GetName())
 	}
 }
 

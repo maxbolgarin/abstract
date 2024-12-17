@@ -380,6 +380,7 @@ func NewEntityMapWithSize[K comparable, T Entity[K]](size int) EntityMap[K, T] {
 }
 
 // LookupByName returns the value for the provided name.
+// It is not case-sensetive according to name.
 func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
 	name = strings.ToLower(name)
 
@@ -393,12 +394,23 @@ func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
 	return zero, false
 }
 
-// Set sets the value for the provided key. It delete the value if the order is -1.
+// Set sets the value for the provided key.
+// It sets last order to the entity's order, so it adds to the end of the list.
+// It sets the same order of existing entity in case of conflict.
 func (s *EntityMap[K, T]) Set(info T) {
-	if info.GetOrder() == -1 {
-		s.Delete(info.GetID())
-		return
+	id := info.GetID()
+	old, ok := s.Map[id]
+	if ok {
+		info = info.SetOrder(old.GetOrder()).(T)
+	} else {
+		info = info.SetOrder(len(s.Map)).(T)
 	}
+	s.Map[id] = info
+}
+
+// SetManualOrder sets the value for the provided key.
+// Better to use [EntityMap.Set] to prevent from order errors.
+func (s *EntityMap[K, T]) SetManualOrder(info T) {
 	s.Map[info.GetID()] = info
 }
 
@@ -414,7 +426,7 @@ func (s *EntityMap[K, T]) AllOrdered() []T {
 
 	for _, h := range s.Map {
 		order := h.GetOrder()
-		if order < 0 || order >= nOfItems {
+		if order < 0 || order >= nOfItems || seen[order] {
 			seenBroken = true
 			broken = append(broken, h)
 			continue
@@ -460,30 +472,19 @@ func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
 			ord = maxOrder
 			maxOrder++
 		}
-
-		item, ok := item.SetOrder(ord).(T)
-		if !ok {
-			panic("you should use the same Entity type as return value from SetOrder")
-		}
-
-		s.Map[item.GetID()] = item
+		s.Map[item.GetID()] = item.SetOrder(ord).(T)
 	}
 }
 
 // Delete deletes the value for the provided key.
+// It reorders all remaining values.
 func (s EntityMap[K, T]) Delete(key K) bool {
 	toDelete, ok := s.Map[key]
 	if !ok {
 		return false
 	}
 
-	// if Deleted has -1 order
 	deleteOrder := toDelete.GetOrder()
-	if deleteOrder == -1 {
-		delete(s.Map, key)
-		return true
-	}
-
 	ordered := s.AllOrdered()
 
 	var flag bool
@@ -494,10 +495,7 @@ func (s EntityMap[K, T]) Delete(key K) bool {
 			continue
 		}
 		if i > deleteOrder {
-			h, ok = h.SetOrder(h.GetOrder() - 1).(T)
-			if !ok {
-				panic("you should use the same Entity type as return value from SetOrder")
-			}
+			h = h.SetOrder(h.GetOrder() - 1).(T)
 		}
 		s.Map[h.GetID()] = h
 	}
@@ -545,14 +543,28 @@ func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
 
 // Set sets the value for the provided key.
 // If the key is not present in the map, it will be added.
-// If the key is present and the value has order -1, the value will be deleted.
+// It sets last order to the entity's order.
+// It sets the same order of existing entity in case of conflict.
 // It is safe for concurrent/parallel use.
 func (s *SafeEntityMap[K, T]) Set(info T) {
-	if info.GetOrder() == -1 {
-		s.Delete(info.GetID())
-		return
-	}
+	id := info.GetID()
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	old, ok := s.items[id]
+	if ok {
+		info = info.SetOrder(old.GetOrder()).(T)
+	} else {
+		info = info.SetOrder(len(s.items)).(T)
+	}
+	s.items[id] = info
+}
+
+// SetManualOrder sets the value for the provided key.
+// Better to use [SafeEntityMap.Set] to prevent from order errors.
+// It is safe for concurrent/parallel use.
+func (s *SafeEntityMap[K, T]) SetManualOrder(info T) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -630,18 +642,12 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 			ord = maxOrder
 			maxOrder++
 		}
-
-		item, ok = item.SetOrder(ord).(T)
-		if !ok {
-			panic("you should use the same Entity type as return value from SetOrder")
-		}
-
-		s.items[item.GetID()] = item
+		s.items[item.GetID()] = item.SetOrder(ord).(T)
 	}
 }
 
 // Delete deletes the value for the provided key.
-// If the value has order -1, the value will be deleted.
+// It reorders all remaining values.
 // It is safe for concurrent/parallel use.
 func (s SafeEntityMap[K, T]) Delete(key K) bool {
 	s.mu.RLock()
@@ -652,16 +658,7 @@ func (s SafeEntityMap[K, T]) Delete(key K) bool {
 		return false
 	}
 
-	// if Deleted has -1 order
 	deleteOrder := toDelete.GetOrder()
-	if deleteOrder == -1 {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
-		delete(s.items, key)
-		return true
-	}
-
 	ordered := s.AllOrdered()
 
 	s.mu.Lock()
@@ -675,10 +672,7 @@ func (s SafeEntityMap[K, T]) Delete(key K) bool {
 			continue
 		}
 		if i > deleteOrder {
-			h, ok = h.SetOrder(h.GetOrder() - 1).(T)
-			if !ok {
-				panic("you should use the same Entity type as return value from SetOrder")
-			}
+			h = h.SetOrder(h.GetOrder() - 1).(T)
 		}
 		s.items[h.GetID()] = h
 	}
