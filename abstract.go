@@ -1,7 +1,11 @@
 // Package abstract provides abstract objects to make work easier and simplify code.
 package abstract
 
-import "sync"
+import (
+	"math"
+	"strconv"
+	"sync"
+)
 
 // Signed is a constraint that permits any signed integer type.
 // If future releases of Go add new predeclared signed integer types,
@@ -141,4 +145,63 @@ func (m *Memorizer[T]) Pop() (T, bool) {
 
 	m.isSet = false
 	return m.item, true
+}
+
+// Itoa converts an integer to a string.
+func Itoa[T Number](i T) string {
+	return strconv.Itoa(int(i))
+}
+
+// Atoi converts a string to an integer.
+func Atoi[T Number](s string) (T, error) {
+	i, err := strconv.Atoi(s)
+	return T(i), err
+}
+
+// Round returns the nearest integer, rounding half away from zero.
+func Round[T Number](f T) T {
+	return T(math.Round(float64(f)))
+}
+
+// Min returns the minimum value from the provided values.
+func Min[T Number](xs ...T) T {
+	var min T
+	if len(xs) == 0 {
+		return min
+	}
+	min = xs[0]
+	for _, x := range xs {
+		if x < min {
+			min = x
+		}
+	}
+	return min
+}
+
+// Max returns the maximum value from the provided values.
+func Max[T Number](xs ...T) T {
+	var max T
+	if len(xs) == 0 {
+		return max
+	}
+	max = xs[0]
+	for _, x := range xs {
+		if x > max {
+			max = x
+		}
+	}
+	return max
+}
+
+// Abs returns the absolute value of the provided value.
+func Abs[T Number](x T) T {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// Pow returns the value raised to the provided power.
+func Pow[T1, T2 Number](x T1, y T2) T1 {
+	return T1(math.Pow(float64(x), float64(y)))
 }
