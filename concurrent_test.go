@@ -2,6 +2,7 @@ package abstract_test
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,5 +111,56 @@ func TestStartUpdaterWithShutdownChan(t *testing.T) {
 
 	if count.Load() < 1 || count.Load() > 2 {
 		t.Errorf("expected function to be called 1 or 2 times, got %d", count.Load())
+	}
+}
+
+func TestRateProcessor(t *testing.T) {
+	ctx := context.Background()
+	rp := abstract.NewRateProcessor(ctx, 5)
+
+	taskCount := 5
+	for i := 0; i < taskCount; i++ {
+		rp.AddTask(func(context.Context) error {
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		})
+	}
+
+	errors := rp.Wait()
+	if len(errors) != 0 {
+		t.Errorf("Expected no errors, got %v", len(errors))
+	}
+}
+
+func TestRateProcessorWithErrors(t *testing.T) {
+	ctx := context.Background()
+	rp := abstract.NewRateProcessor(ctx, 5)
+
+	taskCount := 5
+	for i := 0; i < taskCount; i++ {
+		rp.AddTask(func(context.Context) error {
+			return errors.New("task error")
+		})
+	}
+
+	errors := rp.Wait()
+	if len(errors) != taskCount {
+		t.Errorf("Expected %v errors, got %v", taskCount, len(errors))
+	}
+}
+
+func TestRateProcessorCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	rp := abstract.NewRateProcessor(ctx, 2)
+
+	cancel() // Отмена контекста сразу после создания
+
+	rp.AddTask(func(context.Context) error {
+		return nil
+	})
+
+	errors := rp.Wait()
+	if len(errors) != 0 {
+		t.Errorf("Expected no errors due to immediate cancellation, got %v", len(errors))
 	}
 }
