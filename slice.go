@@ -85,6 +85,11 @@ func (s *Slice[T]) Copy() Slice[T] {
 	return append(make([]T, 0, len(*s)), *s...)
 }
 
+// Change changes the value for the provided key using provided function.
+func (s *Slice[T]) Change(index int, f func(T) T) {
+	(*s)[index] = f((*s)[index])
+}
+
 // Transform transforms all values of the slice using provided function.
 func (s *Slice[T]) Transform(f func(T) T) {
 	for i, v := range *s {
@@ -219,6 +224,14 @@ func (s *SafeSlice[T]) Copy() []T {
 	defer s.mu.RUnlock()
 
 	return append(make([]T, 0, len(s.items)), s.items...)
+}
+
+// Change changes the value for the provided key using provided function.
+func (s *SafeSlice[T]) Change(index int, f func(T) T) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.items[index] = f(s.items[index])
 }
 
 // Transform transforms all values of the slice using provided function.

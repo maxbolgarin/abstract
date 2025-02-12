@@ -132,6 +132,18 @@ func TestSlice(t *testing.T) {
 	}
 }
 
+func TestChangeSlice(t *testing.T) {
+	slice := abstract.NewSliceFromItems(1, 2, 3)
+	slice.Change(0, func(x int) int { return x * 2 })
+	if slice.Get(0) != 2 {
+		t.Errorf("expected transformed element 2, got %d", slice.Get(0))
+	}
+	slice.Change(1, func(x int) int { return x * 2 })
+	if slice.Get(1) != 4 {
+		t.Errorf("expected transformed element 4, got %d", slice.Get(1))
+	}
+}
+
 // TestSafeSlice tests all methods for the SafeSlice type with concurrency.
 func TestSafeSlice(t *testing.T) {
 	var wg sync.WaitGroup
@@ -258,5 +270,17 @@ func TestSafeSlice(t *testing.T) {
 	slice3.Transform(func(x int) int { return x * 2 })
 	if slice3.Get(0) != 2 || slice3.Get(1) != 4 || slice3.Get(2) != 6 {
 		t.Error("expected transformed elements to match original slice")
+	}
+}
+
+func TestChangeSafeSlice(t *testing.T) {
+	slice := abstract.NewSafeSliceFromItems(1, 2, 3)
+	slice.Change(0, func(x int) int { return x * 2 })
+	if slice.Get(0) != 2 {
+		t.Errorf("expected transformed element 2, got %d", slice.Get(0))
+	}
+	slice.Change(1, func(x int) int { return x * 2 })
+	if slice.Get(1) != 4 {
+		t.Errorf("expected transformed element 4, got %d", slice.Get(1))
 	}
 }
