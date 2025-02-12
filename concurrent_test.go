@@ -114,6 +114,211 @@ func TestStartUpdaterWithShutdownChan(t *testing.T) {
 	}
 }
 
+// TestStartUpdaterWithShutdownChanCtxCancel tests the StartUpdaterWithShutdownChan function.
+func TestStartUpdaterWithShutdownChanCtxCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	interval := 20 * time.Millisecond
+	ch := make(chan struct{})
+	f := func() {
+		count.Add(1)
+	}
+
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+	}()
+
+	abstract.StartUpdaterWithShutdownChan(ctx, interval, nil, ch, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() < 1 || count.Load() > 2 {
+		t.Errorf("expected function to be called 1 or 2 times, got %d", count.Load())
+	}
+}
+
+// TestStartCycle tests the StartCycle function.
+func TestStartCycle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	f := func() {
+		count.Add(1)
+	}
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	abstract.StartCycle(ctx, nil, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() < 2 {
+		t.Errorf("expected function to be called at least 2 times, got %d", count.Load())
+	}
+}
+
+// TestStartCycleWithShutdown tests the StartCycleWithShutdown function.
+func TestStartCycleWithShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	f := func() {
+		count.Add(1)
+	}
+	shutdown := make(chan struct{})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		close(shutdown) // Signal shutdown by closing the channel
+	}()
+
+	abstract.StartCycleWithShutdown(ctx, nil, shutdown, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() < 2 {
+		t.Errorf("expected function to be called at least 2 times, got %d", count.Load())
+	}
+}
+
+// TestStartCycleWithShutdown tests the StartCycleWithShutdown function.
+func TestStartCycleWithShutdownCtxCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	f := func() {
+		count.Add(1)
+	}
+	shutdown := make(chan struct{})
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	abstract.StartCycleWithShutdown(ctx, nil, shutdown, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() < 2 {
+		t.Errorf("expected function to be called at least 2 times, got %d", count.Load())
+	}
+}
+
+// TestStartCycleWithChan tests the StartCycleWithChan function.
+func TestStartCycleWithChan(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	ch := make(chan int)
+	f := func(val int) {
+		count.Add(int64(val))
+	}
+
+	go func() {
+		for i := 2; i < 4; i++ {
+			ch <- i
+		}
+		time.Sleep(50 * time.Millisecond)
+		close(ch)
+	}()
+
+	abstract.StartCycleWithChan(ctx, nil, ch, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() != 5 {
+		t.Errorf("expected function to be called at least 2 times with values 2 and 3, got %d", count.Load())
+	}
+}
+
+func TestStartCycleWithChanCtxCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	ch := make(chan int)
+	f := func(val int) {
+		count.Add(int64(val))
+	}
+
+	go func() {
+		for i := 2; i < 4; i++ {
+			ch <- i
+		}
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	abstract.StartCycleWithChan(ctx, nil, ch, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() != 5 {
+		t.Errorf("expected function to be called at least 2 times with values 2 and 3, got %d", count.Load())
+	}
+}
+
+// TestStartCycleWithChanAndShutdown tests the StartCycleWithChanAndShutdown function.
+func TestStartCycleWithChanAndShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	ch := make(chan int)
+	f := func(val int) {
+		count.Add(int64(val))
+	}
+	shutdown := make(chan struct{})
+
+	go func() {
+		for i := 2; i < 4; i++ {
+			ch <- i
+		}
+		time.Sleep(50 * time.Millisecond)
+		close(shutdown) // Signal shutdown by closing the channel
+	}()
+
+	abstract.StartCycleWithChanAndShutdown(ctx, nil, ch, shutdown, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() != 5 {
+		t.Errorf("expected function to be called at least 2 times with values 2 and 3, got %d", count.Load())
+	}
+}
+
+// TestStartCycleWithChanAndShutdownCtxCancel tests the StartCycleWithChanAndShutdown function.
+func TestStartCycleWithChanAndShutdownCtxCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var count atomic.Int64
+	ch := make(chan int)
+	f := func(val int) {
+		count.Add(int64(val))
+	}
+	shutdown := make(chan struct{})
+
+	go func() {
+		for i := 2; i < 4; i++ {
+			ch <- i
+		}
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	abstract.StartCycleWithChanAndShutdown(ctx, nil, ch, shutdown, f)
+	time.Sleep(100 * time.Millisecond)
+
+	if count.Load() != 5 {
+		t.Errorf("expected function to be called at least 2 times with values 2 and 3, got %d", count.Load())
+	}
+}
+
 func TestRateProcessor(t *testing.T) {
 	ctx := context.Background()
 	rp := abstract.NewRateProcessor(ctx, 5)

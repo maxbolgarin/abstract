@@ -76,6 +76,72 @@ func StartUpdaterWithShutdownChan(ctx context.Context, interval time.Duration, l
 	})
 }
 
+// StartCycle starts a new panicsafe goroutine.
+// It runs the provided function in a loop until the context is canceled.
+func StartCycle(ctx context.Context, l lang.Logger, f func()) {
+	lang.Go(l, func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				f()
+			}
+		}
+	})
+}
+
+// StartCycleWithShutdown starts a new panicsafe goroutine.
+// It runs the provided function in a loop until the context is canceled or the provided shutdown channel is closed.
+func StartCycleWithShutdown(ctx context.Context, l lang.Logger, shutdown <-chan struct{}, f func()) {
+	lang.Go(l, func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-shutdown:
+				return
+			default:
+				f()
+			}
+		}
+	})
+}
+
+// StartCycleWithChan starts a new panicsafe goroutine.
+// It runs the provided function for each value from the provided channel.
+// It stops the goroutine when the context is canceled or the provided channel is closed.
+func StartCycleWithChan[T any](ctx context.Context, l lang.Logger, c <-chan T, f func(T)) {
+	lang.Go(l, func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case val := <-c:
+				f(val)
+			}
+		}
+	})
+}
+
+// StartCycleWithChanAndShutdown starts a new panicsafe goroutine.
+// It runs the provided function for each value from the provided channel.
+// It stops the goroutine when the context is canceled or the provided shutdown channel is closed.
+func StartCycleWithChanAndShutdown[T any](ctx context.Context, l lang.Logger, c <-chan T, shutdown <-chan struct{}, f func(T)) {
+	lang.Go(l, func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case val := <-c:
+				f(val)
+			case <-shutdown:
+				return
+			}
+		}
+	})
+}
+
 // RateProcessor manages a pool of workers to process tasks with a rate limit.
 type RateProcessor struct {
 	tasks   chan func(context.Context) error
