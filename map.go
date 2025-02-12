@@ -118,6 +118,11 @@ func (m Map[K, V]) Values() []V {
 	return lang.Values(m)
 }
 
+// Change changes the value for the provided key using provided function.
+func (m Map[K, V]) Change(key K, f func(K, V) V) {
+	m[key] = f(key, m[key])
+}
+
 // Transform transforms all values of the map using provided function.
 func (m Map[K, V]) Transform(f func(K, V) V) {
 	for k, v := range m {
@@ -294,6 +299,14 @@ func (m *SafeMap[K, V]) Values() []V {
 	defer m.mu.RUnlock()
 
 	return lang.Values(m.items)
+}
+
+// Change changes the value for the provided key using provided function. It is safe for concurrent/parallel use.
+func (m *SafeMap[K, V]) Change(key K, f func(K, V) V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.items[key] = f(key, m.items[key])
 }
 
 // Update updates the map using provided function. It is safe for concurrent/parallel use.

@@ -152,6 +152,18 @@ func TestSetIfNotPresent(t *testing.T) {
 	}
 }
 
+func TestChange(t *testing.T) {
+	m := abstract.NewMap[string, int]()
+	m.Set("key1", 1)
+	m.Change("key1", func(k string, v int) int {
+		return v * 2
+	})
+
+	if v := m.Get("key1"); v != 2 {
+		t.Errorf("Expected value for 'key1' to be transformed to 2, got %d", v)
+	}
+}
+
 func TestTransform(t *testing.T) {
 	m := abstract.NewMap[string, int]()
 	m.Set("key1", 1)
@@ -413,6 +425,19 @@ func TestSafeMap_ConcurrentAccess(t *testing.T) {
 		t.Errorf("Expected map length to be %d, got %d", numGoroutines, m.Len())
 	}
 }
+
+func TestSafeMap_Change(t *testing.T) {
+	m := abstract.NewSafeMap[string, int]()
+	m.Set("key1", 1)
+	m.Change("key1", func(k string, v int) int {
+		return v * 2
+	})
+
+	if v := m.Get("key1"); v != 2 {
+		t.Errorf("Expected value for 'key1' to be transformed to 2, got %d", v)
+	}
+}
+
 func TestSafeMap_Transform(t *testing.T) {
 	m := abstract.NewSafeMap[string, int]()
 	m.Set("key1", 1)
