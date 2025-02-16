@@ -107,6 +107,11 @@ func (s *Slice[T]) Range(f func(T) bool) bool {
 	return true
 }
 
+// Raw returns the underlying slice.
+func (s *Slice[T]) Raw() []T {
+	return *s
+}
+
 // SafeSlice is used like a common slice, but it is protected with RW mutex, so it can be used in many goroutines.
 type SafeSlice[T any] struct {
 	items []T
@@ -255,6 +260,14 @@ func (s *SafeSlice[T]) Range(f func(T) bool) bool {
 		}
 	}
 	return true
+}
+
+// Raw returns the underlying slice.
+func (s *SafeSlice[T]) Raw() []T {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.items
 }
 
 func getSlicesLen[T any](slices ...[]T) int {
