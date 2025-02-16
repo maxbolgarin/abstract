@@ -86,16 +86,16 @@ func (m Map[K, V]) Swap(key K, value V) V {
 	return old
 }
 
-// Delete removes the key and associated value from the map, does nothing if the key is not present in the map,
+// Delete removes keys and associated values from the map, does nothing if the key is not present in the map,
 // returns true if the key was deleted
-func (m Map[K, V]) Delete(key K) bool {
-	_, ok := m[key]
-	if !ok {
-		return false
+func (m Map[K, V]) Delete(keys ...K) (deleted bool) {
+	for _, key := range keys {
+		if _, ok := m[key]; ok {
+			deleted = true
+			delete(m, key)
+		}
 	}
-	delete(m, key)
-
-	return true
+	return deleted
 }
 
 // Len returns the length of the map.
@@ -143,6 +143,11 @@ func (m Map[K, V]) Range(f func(K, V) bool) bool {
 // Copy returns another map that is a copy of the underlying map.
 func (m Map[K, V]) Copy() map[K]V {
 	return lang.CopyMap(m)
+}
+
+// Raw returns the underlying map.
+func (m Map[K, V]) Raw() map[K]V {
+	return m
 }
 
 // SafeMap is used like a common map, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -254,19 +259,20 @@ func (m *SafeMap[K, V]) Swap(key K, value V) V {
 	return old
 }
 
-// Delete removes key and associated value from map, does nothing if key is not present in map,
+// Delete removes keys and associated values from map, does nothing if key is not present in map,
 // returns true if key was deleted. It is safe for concurrent/parallel use.
-func (m *SafeMap[K, V]) Delete(key K) bool {
+func (m *SafeMap[K, V]) Delete(keys ...K) (deleted bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, ok := m.items[key]
-	if !ok {
-		return false
+	for _, key := range keys {
+		if _, ok := m.items[key]; ok {
+			deleted = true
+			delete(m.items, key)
+		}
 	}
-	delete(m.items, key)
 
-	return true
+	return deleted
 }
 
 // Len returns the length of the map. It is safe for concurrent/parallel use.
@@ -354,6 +360,14 @@ func (m *SafeMap[K, V]) Refill(raw map[K]V) {
 	defer m.mu.Unlock()
 
 	m.items = lang.CopyMap(raw)
+}
+
+// Raw returns the underlying map.
+func (m *SafeMap[K, V]) Raw() map[K]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.items
 }
 
 func getMapsLength[K comparable, V any](maps ...map[K]V) int {
@@ -494,31 +508,31 @@ func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
 	}
 }
 
-// Delete deletes the value for the provided key.
+// Delete deletes values for the provided keys.
 // It reorders all remaining values.
-func (s EntityMap[K, T]) Delete(key K) bool {
-	toDelete, ok := s.Map[key]
-	if !ok {
-		return false
-	}
-
-	deleteOrder := toDelete.GetOrder()
-	ordered := s.AllOrdered()
-
-	var flag bool
-	for i, h := range ordered {
-		if i == deleteOrder {
-			delete(s.Map, key)
-			flag = true
+func (s EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
+	for _, key := range keys {
+		toDelete, ok := s.Map[key]
+		if !ok {
 			continue
 		}
-		if i > deleteOrder {
-			h = h.SetOrder(h.GetOrder() - 1).(T)
-		}
-		s.Map[h.GetID()] = h
-	}
 
-	return flag
+		deleteOrder := toDelete.GetOrder()
+		ordered := s.AllOrdered()
+
+		for i, h := range ordered {
+			if i == deleteOrder {
+				delete(s.Map, key)
+				deleted = true
+				continue
+			}
+			if i > deleteOrder {
+				h = h.SetOrder(h.GetOrder() - 1).(T)
+			}
+			s.Map[h.GetID()] = h
+		}
+	}
+	return deleted
 }
 
 // SafeEntityMap is a thread-safe map of entities.
@@ -600,7 +614,10 @@ func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 func (s *SafeEntityMap[K, T]) AllOrdered() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.allOrderedNoLock()
+}
 
+func (s *SafeEntityMap[K, T]) allOrderedNoLock() []T {
 	var (
 		nOfItems   = len(s.items)
 		out        = make([]T, nOfItems)
@@ -670,38 +687,36 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 	}
 }
 
-// Delete deletes the value for the provided key.
+// Delete deletes values for the provided keys.
 // It reorders all remaining values.
 // It is safe for concurrent/parallel use.
-func (s SafeEntityMap[K, T]) Delete(key K) bool {
-	s.mu.RLock()
-	toDelete, ok := s.items[key]
-	s.mu.RUnlock()
-
-	if !ok {
-		return false
-	}
-
-	deleteOrder := toDelete.GetOrder()
-	ordered := s.AllOrdered()
-
+func (s *SafeEntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var flag bool
-	for i, h := range ordered {
-		if i == deleteOrder {
-			delete(s.items, key)
-			flag = true
+	for _, key := range keys {
+		toDelete, ok := s.items[key]
+		if !ok {
 			continue
 		}
-		if i > deleteOrder {
-			h = h.SetOrder(h.GetOrder() - 1).(T)
+
+		deleteOrder := toDelete.GetOrder()
+		ordered := s.allOrderedNoLock()
+
+		for i, h := range ordered {
+			if i == deleteOrder {
+				delete(s.items, key)
+				deleted = true
+				continue
+			}
+			if i > deleteOrder {
+				h = h.SetOrder(h.GetOrder() - 1).(T)
+			}
+			s.items[h.GetID()] = h
 		}
-		s.items[h.GetID()] = h
 	}
 
-	return flag
+	return deleted
 }
 
 // OrderedPairs is a data structure that behaves like a map but remembers

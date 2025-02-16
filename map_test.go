@@ -53,6 +53,8 @@ func TestSetAndDelete(t *testing.T) {
 
 	m.Set("key1", 100)
 	m.Set("key1", 200) // overwrite
+	m.Set("key3", 300)
+	m.Set("key4", 400)
 
 	if val := m.Get("key1"); val != 200 {
 		t.Errorf("Expected 'key1' to have new value of 200, got %d", val)
@@ -70,6 +72,27 @@ func TestSetAndDelete(t *testing.T) {
 	deleted = m.Delete("key2")
 	if deleted {
 		t.Errorf("Expected 'key2' to not be deleted")
+	}
+
+	if !m.Has("key3") {
+		t.Errorf("Expected 'key3' to be present")
+	}
+
+	if !m.Has("key4") {
+		t.Errorf("Expected 'key4' to be present")
+	}
+
+	deleted = m.Delete("key3", "key4")
+	if !deleted {
+		t.Errorf("Expected 'key3' and 'key4' to be deleted")
+	}
+
+	if m.Has("key3") {
+		t.Errorf("Expected 'key3' to not be present after deletion")
+	}
+
+	if m.Has("key4") {
+		t.Errorf("Expected 'key4' to not be present after deletion")
 	}
 }
 
@@ -276,18 +299,48 @@ func TestSafeMap_Has(t *testing.T) {
 
 func TestSafeMap_Delete(t *testing.T) {
 	m := abstract.NewSafeMap[string, int]()
-	m.Set("key1", 10)
+	m.Set("key1", 100)
+	m.Set("key1", 200) // overwrite
+	m.Set("key3", 300)
+	m.Set("key4", 400)
 
-	if !m.Delete("key1") {
-		t.Errorf("Expected successful deletion of key1")
+	if val := m.Get("key1"); val != 200 {
+		t.Errorf("Expected 'key1' to have new value of 200, got %d", val)
+	}
+
+	deleted := m.Delete("key1")
+	if !deleted {
+		t.Errorf("Expected 'key1' to be deleted")
 	}
 
 	if m.Has("key1") {
-		t.Errorf("Expected key1 to be deleted")
+		t.Errorf("Expected 'key1' to not be present after deletion")
 	}
 
-	if m.Delete("key2") {
-		t.Errorf("Expected failed deletion of key2")
+	deleted = m.Delete("key2")
+	if deleted {
+		t.Errorf("Expected 'key2' to not be deleted")
+	}
+
+	if !m.Has("key3") {
+		t.Errorf("Expected 'key3' to be present")
+	}
+
+	if !m.Has("key4") {
+		t.Errorf("Expected 'key4' to be present")
+	}
+
+	deleted = m.Delete("key3", "key4")
+	if !deleted {
+		t.Errorf("Expected 'key3' and 'key4' to be deleted")
+	}
+
+	if m.Has("key3") {
+		t.Errorf("Expected 'key3' to not be present after deletion")
+	}
+
+	if m.Has("key4") {
+		t.Errorf("Expected 'key4' to not be present after deletion")
 	}
 }
 
