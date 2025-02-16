@@ -56,9 +56,15 @@ func (m *Set[K]) Has(key K) bool {
 	return ok
 }
 
-// Delete removes the key from the set, does nothing if the key is not present in the set.
-func (m *Set[K]) Delete(key K) {
-	delete(m.items, key)
+// Delete removes the keys from the set, does nothing if the key is not present in the set.
+func (m *Set[K]) Delete(keys ...K) (deleted bool) {
+	for _, key := range keys {
+		if _, ok := m.items[key]; ok {
+			delete(m.items, key)
+			deleted = true
+		}
+	}
+	return deleted
 }
 
 // Len returns the length of the set.
@@ -156,12 +162,18 @@ func (m *SafeSet[K]) Has(key K) bool {
 	return ok
 }
 
-// Delete removes a key from the set. It is safe for concurrent/parallel use.
-func (m *SafeSet[K]) Delete(key K) {
+// Delete removes keys from the set. It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) Delete(keys ...K) (deleted bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	delete(m.set, key)
+	for _, key := range keys {
+		if _, ok := m.set[key]; ok {
+			delete(m.set, key)
+			deleted = true
+		}
+	}
+	return deleted
 }
 
 // Len returns the number of keys in set. It is safe for concurrent/parallel use.
