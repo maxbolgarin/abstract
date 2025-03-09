@@ -241,6 +241,16 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func TestClear(t *testing.T) {
+	m := abstract.NewMap[string, int]()
+	m.Set("key1", 1)
+
+	m.Clear()
+	if m.Len() != 0 {
+		t.Errorf("Expected map to be clear, but got length %d", m.Len())
+	}
+}
+
 func TestSafeMap_NewSafeMap(t *testing.T) {
 	m := abstract.NewSafeMap[string, int]()
 	if m.Len() != 0 {

@@ -158,6 +158,11 @@ func (m *Map[K, V]) Raw() map[K]V {
 	return m.inner
 }
 
+// Clear creates a new map using make without size.
+func (m *Map[K, V]) Clear() {
+	m.inner = make(map[K]V)
+}
+
 // SafeMap is used like a common map, but it is protected with RW mutex, so it can be used in many goroutines.
 type SafeMap[K comparable, V any] struct {
 	items map[K]V
