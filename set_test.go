@@ -9,7 +9,7 @@ import (
 
 // TestNewSet tests creating a new Set and adding elements.
 func TestNewSet(t *testing.T) {
-	s := abstract.NewSet[int]()
+	var s = &abstract.Set[int]{}
 	if !s.IsEmpty() {
 		t.Error("New set should be empty")
 	}

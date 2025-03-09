@@ -310,7 +310,11 @@ func TestSafeMap_SetAndGet(t *testing.T) {
 }
 
 func TestSafeMap_Lookup(t *testing.T) {
-	m := abstract.NewSafeMapWithSize[string, int](2)
+	m := &abstract.SafeMap[string, int]{}
+
+	if value, ok := m.Lookup("key1"); ok || value != 0 {
+		t.Errorf("Expected value 0, got %d, ok %v", value, ok)
+	}
 
 	m.Set("key1", 10)
 

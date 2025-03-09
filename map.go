@@ -14,7 +14,7 @@ import (
 
 // Map is used like a common map.
 type Map[K comparable, V any] struct {
-	inner map[K]V
+	items map[K]V
 }
 
 // NewMap returns a [Map] with an empty map.
@@ -26,7 +26,7 @@ func NewMap[K comparable, V any](raw ...map[K]V) *Map[K, V] {
 		}
 	}
 	return &Map[K, V]{
-		inner: out,
+		items: out,
 	}
 }
 
@@ -37,72 +37,96 @@ func NewMapFromPairs[K comparable, V any](pairs ...any) *Map[K, V] {
 		out[pairs[i].(K)] = pairs[i+1].(V)
 	}
 	return &Map[K, V]{
-		inner: out,
+		items: out,
 	}
 }
 
 // NewMapWithSize returns a [Map] with a map inited using the provided size.
 func NewMapWithSize[K comparable, V any](size int) *Map[K, V] {
 	return &Map[K, V]{
-		inner: make(map[K]V, size),
+		items: make(map[K]V, size),
 	}
 }
 
 // Get returns the value for the provided key or the default type value if the key is not present in the map.
 func (m *Map[K, V]) Get(key K) V {
-	return m.inner[key]
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return m.items[key]
 }
 
 // Lookup returns the value for the provided key and true if the key is present in the map, the default value and false otherwise.
 func (m *Map[K, V]) Lookup(key K) (V, bool) {
-	v, ok := m.inner[key]
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	v, ok := m.items[key]
 	return v, ok
 }
 
 // Has returns true if the key is present in the map, false otherwise.
 func (m *Map[K, V]) Has(key K) bool {
-	_, ok := m.inner[key]
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	_, ok := m.items[key]
 	return ok
 }
 
 // Pop returns the value for the provided key and deletes it from map or default type value if key is not present.
 func (m *Map[K, V]) Pop(key K) V {
-	val, ok := m.inner[key]
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	val, ok := m.items[key]
 	if ok {
-		delete(m.inner, key)
+		delete(m.items, key)
 	}
 	return val
 }
 
 // Set sets the value to the map.
 func (m *Map[K, V]) Set(key K, value V) {
-	m.inner[key] = value
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	m.items[key] = value
 }
 
 // SetIfNotPresent sets the value to the map if the key is not present,
 // returns the old value if the key was set, new value otherwise.
 func (m *Map[K, V]) SetIfNotPresent(key K, value V) V {
-	if _, ok := m.inner[key]; !ok {
-		m.inner[key] = value
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	if _, ok := m.items[key]; !ok {
+		m.items[key] = value
 		return value
 	}
-	return m.inner[key]
+	return m.items[key]
 }
 
 // Swap swaps the values for the provided keys and returns the old value.
 func (m *Map[K, V]) Swap(key K, value V) V {
-	old := m.inner[key]
-	m.inner[key] = value
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	old := m.items[key]
+	m.items[key] = value
 	return old
 }
 
 // Delete removes keys and associated values from the map, does nothing if the key is not present in the map,
 // returns true if the key was deleted
 func (m *Map[K, V]) Delete(keys ...K) (deleted bool) {
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
 	for _, key := range keys {
-		if _, ok := m.inner[key]; ok {
+		if _, ok := m.items[key]; ok {
 			deleted = true
-			delete(m.inner, key)
+			delete(m.items, key)
 		}
 	}
 	return deleted
@@ -110,39 +134,60 @@ func (m *Map[K, V]) Delete(keys ...K) (deleted bool) {
 
 // Len returns the length of the map.
 func (m *Map[K, V]) Len() int {
-	return len(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return len(m.items)
 }
 
 // IsEmpty returns true if the map is empty. It is safe for concurrent/parallel use.
 func (m *Map[K, V]) IsEmpty() bool {
-	return len(m.inner) == 0
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return len(m.items) == 0
 }
 
 // Keys returns a slice of keys of the map.
 func (m *Map[K, V]) Keys() []K {
-	return lang.Keys(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return lang.Keys(m.items)
 }
 
 // Values returns a slice of values of the map.
 func (m *Map[K, V]) Values() []V {
-	return lang.Values(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return lang.Values(m.items)
 }
 
 // Change changes the value for the provided key using provided function.
 func (m *Map[K, V]) Change(key K, f func(K, V) V) {
-	m.inner[key] = f(key, m.inner[key])
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	m.items[key] = f(key, m.items[key])
 }
 
 // Transform transforms all values of the map using provided function.
 func (m *Map[K, V]) Transform(f func(K, V) V) {
-	for k, v := range m.inner {
-		m.inner[k] = f(k, v)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	for k, v := range m.items {
+		m.items[k] = f(k, v)
 	}
 }
 
 // Range calls the provided function for each key-value pair in the map.
 func (m *Map[K, V]) Range(f func(K, V) bool) bool {
-	for k, v := range m.inner {
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	for k, v := range m.items {
 		if !f(k, v) {
 			return false
 		}
@@ -152,32 +197,47 @@ func (m *Map[K, V]) Range(f func(K, V) bool) bool {
 
 // Copy returns another map that is a copy of the underlying map.
 func (m *Map[K, V]) Copy() map[K]V {
-	return lang.CopyMap(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return lang.CopyMap(m.items)
 }
 
 // Raw returns the underlying map.
 func (m *Map[K, V]) Raw() map[K]V {
-	return m.inner
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return m.items
 }
 
 // Clear creates a new map using make without size.
 func (m *Map[K, V]) Clear() {
-	m.inner = make(map[K]V)
+	m.items = make(map[K]V)
 }
 
 // IterKeys returns an iterator over the map keys.
 func (m *Map[K, V]) IterKeys() iter.Seq[K] {
-	return maps.Keys(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return maps.Keys(m.items)
 }
 
 // IterValues returns an iterator over the map values.
 func (m *Map[K, V]) IterValues() iter.Seq[V] {
-	return maps.Values(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return maps.Values(m.items)
 }
 
 // Iter returns an iterator over the map.
 func (m *Map[K, V]) Iter() iter.Seq2[K, V] {
-	return maps.All(m.inner)
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+	return maps.All(m.items)
 }
 
 // SafeMap is used like a common map, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -223,6 +283,14 @@ func (m *SafeMap[K, V]) Get(key K) V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	return m.items[key]
 }
 
@@ -231,6 +299,14 @@ func (m *SafeMap[K, V]) Get(key K) V {
 func (m *SafeMap[K, V]) Lookup(key K) (V, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	v, ok := m.items[key]
 	return v, ok
@@ -241,6 +317,14 @@ func (m *SafeMap[K, V]) Has(key K) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	_, ok := m.items[key]
 	return ok
 }
@@ -250,6 +334,14 @@ func (m *SafeMap[K, V]) Has(key K) bool {
 func (m *SafeMap[K, V]) Pop(key K) V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	val, ok := m.items[key]
 	if ok {
@@ -263,6 +355,10 @@ func (m *SafeMap[K, V]) Set(key K, value V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+
 	m.items[key] = value
 }
 
@@ -271,6 +367,10 @@ func (m *SafeMap[K, V]) Set(key K, value V) {
 func (m *SafeMap[K, V]) SetIfNotPresent(key K, value V) V {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
 
 	if _, ok := m.items[key]; !ok {
 		m.items[key] = value
@@ -284,6 +384,10 @@ func (m *SafeMap[K, V]) Swap(key K, value V) V {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+
 	old := m.items[key]
 	m.items[key] = value
 	return old
@@ -294,6 +398,10 @@ func (m *SafeMap[K, V]) Swap(key K, value V) V {
 func (m *SafeMap[K, V]) Delete(keys ...K) (deleted bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
 
 	for _, key := range keys {
 		if _, ok := m.items[key]; ok {
@@ -310,6 +418,14 @@ func (m *SafeMap[K, V]) Len() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	return len(m.items)
 }
 
@@ -317,6 +433,14 @@ func (m *SafeMap[K, V]) Len() int {
 func (m *SafeMap[K, V]) IsEmpty() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	return len(m.items) == 0
 }
@@ -326,6 +450,14 @@ func (m *SafeMap[K, V]) Keys() []K {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	return lang.Keys(m.items)
 }
 
@@ -333,6 +465,14 @@ func (m *SafeMap[K, V]) Keys() []K {
 func (m *SafeMap[K, V]) Values() []V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	return lang.Values(m.items)
 }
@@ -342,6 +482,10 @@ func (m *SafeMap[K, V]) Change(key K, f func(K, V) V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+
 	m.items[key] = f(key, m.items[key])
 }
 
@@ -349,6 +493,10 @@ func (m *SafeMap[K, V]) Change(key K, f func(K, V) V) {
 func (m *SafeMap[K, V]) Transform(upd func(K, V) V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
 
 	for k, v := range m.items {
 		m.items[k] = upd(k, v)
@@ -359,6 +507,14 @@ func (m *SafeMap[K, V]) Transform(upd func(K, V) V) {
 func (m *SafeMap[K, V]) Range(f func(K, V) bool) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	for k, v := range m.items {
 		if !f(k, v) {
@@ -372,6 +528,14 @@ func (m *SafeMap[K, V]) Range(f func(K, V) bool) bool {
 func (m *SafeMap[K, V]) Copy() map[K]V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	return lang.CopyMap(m.items)
 }
@@ -389,6 +553,10 @@ func (m *SafeMap[K, V]) Refill(raw map[K]V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if m.items == nil {
+		m.items = make(map[K]V)
+	}
+
 	m.items = lang.CopyMap(raw)
 }
 
@@ -396,6 +564,14 @@ func (m *SafeMap[K, V]) Refill(raw map[K]V) {
 func (m *SafeMap[K, V]) Raw() map[K]V {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	return m.items
 }
@@ -407,6 +583,14 @@ func (m *SafeMap[K, V]) IterValues() iter.Seq[V] {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	return maps.Values(m.items)
 }
 
@@ -417,6 +601,14 @@ func (m *SafeMap[K, V]) IterKeys() iter.Seq[K] {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
 	return maps.Keys(m.items)
 }
 
@@ -426,6 +618,14 @@ func (m *SafeMap[K, V]) IterKeys() iter.Seq[K] {
 func (m *SafeMap[K, V]) Iter() iter.Seq2[K, V] {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
 
 	return maps.All(m.items)
 }
@@ -469,9 +669,13 @@ func NewEntityMapWithSize[K comparable, T Entity[K]](size int) *EntityMap[K, T] 
 // LookupByName returns the value for the provided name.
 // It is not case-sensetive according to name.
 func (s *EntityMap[K, T]) LookupByName(name string) (T, bool) {
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
 	name = strings.ToLower(name)
 
-	for _, h := range s.Map.inner {
+	for _, h := range s.Map.items {
 		if strings.ToLower(h.GetName()) == name {
 			return h, true
 		}
@@ -486,14 +690,18 @@ func (s *EntityMap[K, T]) LookupByName(name string) (T, bool) {
 // It sets the same order of existing entity in case of conflict.
 // It returns the order of the entity.
 func (s *EntityMap[K, T]) Set(info T) int {
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
 	id := info.GetID()
-	old, ok := s.Map.inner[id]
+	old, ok := s.Map.items[id]
 	if ok {
 		info = info.SetOrder(old.GetOrder()).(T)
 	} else {
-		info = info.SetOrder(len(s.Map.inner)).(T)
+		info = info.SetOrder(len(s.Map.items)).(T)
 	}
-	s.Map.inner[id] = info
+	s.Map.items[id] = info
 
 	return info.GetOrder()
 }
@@ -502,21 +710,25 @@ func (s *EntityMap[K, T]) Set(info T) int {
 // Better to use [EntityMap.Set] to prevent from order errors.
 // It returns the order of the entity.
 func (s *EntityMap[K, T]) SetManualOrder(info T) int {
-	s.Map.inner[info.GetID()] = info
+	s.Map.items[info.GetID()] = info
 	return info.GetOrder()
 }
 
 // AllOrdered returns all values in order.
 func (s *EntityMap[K, T]) AllOrdered() []T {
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
 	var (
-		nOfItems   = len(s.Map.inner)
+		nOfItems   = len(s.Map.items)
 		out        = make([]T, nOfItems)
 		seen       = make([]bool, nOfItems)
 		broken     []T
 		seenBroken bool
 	)
 
-	for _, h := range s.Map.inner {
+	for _, h := range s.Map.items {
 		order := h.GetOrder()
 		if order < 0 || order >= nOfItems || seen[order] {
 			seenBroken = true
@@ -550,11 +762,19 @@ func (s *EntityMap[K, T]) AllOrdered() []T {
 
 // NextOrder returns the next order.
 func (s *EntityMap[K, T]) NextOrder() int {
-	return len(s.Map.inner)
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
+	return len(s.Map.items)
 }
 
 // ChangeOrder changes the order of the values.
 func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
 	ordered := s.AllOrdered()
 
 	maxOrder := len(draft)
@@ -564,15 +784,19 @@ func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
 			ord = maxOrder
 			maxOrder++
 		}
-		s.Map.inner[item.GetID()] = item.SetOrder(ord).(T)
+		s.Map.items[item.GetID()] = item.SetOrder(ord).(T)
 	}
 }
 
 // Delete deletes values for the provided keys.
 // It reorders all remaining values.
 func (s *EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
+	if s.Map.items == nil {
+		s.Map.items = make(map[K]T)
+	}
+
 	for _, key := range keys {
-		toDelete, ok := s.Map.inner[key]
+		toDelete, ok := s.Map.items[key]
 		if !ok {
 			continue
 		}
@@ -582,14 +806,14 @@ func (s *EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 
 		for i, h := range ordered {
 			if i == deleteOrder {
-				delete(s.Map.inner, key)
+				delete(s.Map.items, key)
 				deleted = true
 				continue
 			}
 			if i > deleteOrder {
 				h = h.SetOrder(h.GetOrder() - 1).(T)
 			}
-			s.Map.inner[h.GetID()] = h
+			s.Map.items[h.GetID()] = h
 		}
 	}
 	return deleted
@@ -623,6 +847,14 @@ func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	if s.items == nil {
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.items = make(map[K]T)
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
 	for _, h := range s.items {
 		if strings.ToLower(h.GetName()) == name {
 			return h, true
@@ -645,6 +877,10 @@ func (s *SafeEntityMap[K, T]) Set(info T) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.items == nil {
+		s.items = make(map[K]T)
+	}
+
 	old, ok := s.items[id]
 	if ok {
 		info = info.SetOrder(old.GetOrder()).(T)
@@ -664,6 +900,10 @@ func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.items == nil {
+		s.items = make(map[K]T)
+	}
+
 	s.items[info.GetID()] = info
 
 	return info.GetOrder()
@@ -674,6 +914,15 @@ func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 func (s *SafeEntityMap[K, T]) AllOrdered() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	if s.items == nil {
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.items = make(map[K]T)
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
 	return s.allOrderedNoLock()
 }
 
@@ -724,6 +973,14 @@ func (s *SafeEntityMap[K, T]) NextOrder() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	if s.items == nil {
+		s.mu.RUnlock()
+		s.mu.Lock()
+		s.items = make(map[K]T)
+		s.mu.Unlock()
+		s.mu.RLock()
+	}
+
 	return len(s.items)
 }
 
@@ -736,6 +993,10 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.items == nil {
+		s.items = make(map[K]T)
+	}
 
 	for _, item := range ordered {
 		ord, ok := draft[item.GetID()]
@@ -753,6 +1014,10 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 func (s *SafeEntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.items == nil {
+		s.items = make(map[K]T)
+	}
 
 	for _, key := range keys {
 		toDelete, ok := s.items[key]
@@ -811,6 +1076,9 @@ func NewOrderedPairs[K Ordered, V any](pairs ...any) *OrderedPairs[K, V] {
 
 // Add adds a key-value pair to the structure. It allows duplicate keys.
 func (m *OrderedPairs[K, V]) Add(key K, value V) {
+	if m.indexes == nil {
+		m.indexes = make(map[K]int)
+	}
 	if index, ok := m.indexes[key]; ok {
 		m.elems[index] = value
 	}
@@ -821,6 +1089,9 @@ func (m *OrderedPairs[K, V]) Add(key K, value V) {
 
 // Get returns the value associated with the key.
 func (m *OrderedPairs[K, V]) Get(key K) (res V) {
+	if m.indexes == nil {
+		m.indexes = make(map[K]int)
+	}
 	if index, ok := m.indexes[key]; ok {
 		return m.elems[index]
 	}
