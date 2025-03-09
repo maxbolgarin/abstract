@@ -131,7 +131,7 @@ Feel free to contribute to this package or report issues you encounter during us
 This project is licensed under the terms of the [MIT License](LICENSE).
 
 [MIT License]: LICENSE.txt
-[version-img]: https://img.shields.io/badge/Go-%3E%3D%201.19-%23007d9c
+[version-img]: https://img.shields.io/badge/Go-%3E%3D%201.23-%23007d9c
 [doc-img]: https://pkg.go.dev/badge/github.com/maxbolgarin/abstract
 [doc]: https://pkg.go.dev/github.com/maxbolgarin/abstract
 [ci-img]: https://github.com/maxbolgarin/abstract/actions/workflows/go.yaml/badge.svg
