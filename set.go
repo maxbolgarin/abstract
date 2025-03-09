@@ -1,6 +1,7 @@
 package abstract
 
 import (
+	"maps"
 	"sync"
 
 	"github.com/maxbolgarin/lang"
@@ -104,6 +105,63 @@ func (m *Set[K]) Range(f func(K) bool) bool {
 		}
 	}
 	return true
+}
+
+// Copy returns a copy of the set.
+func (m *Set[K]) Copy() map[K]struct{} {
+	out := make(map[K]struct{}, len(m.items))
+	maps.Copy(out, m.items)
+	return out
+}
+
+// Union returns a new set with the union of the current set and the provided set.
+func (m *Set[K]) Union(set map[K]struct{}) *Set[K] {
+	out := NewSet[K]()
+	for k := range m.items {
+		out.items[k] = struct{}{}
+	}
+	for k := range set {
+		out.items[k] = struct{}{}
+	}
+	return out
+}
+
+// Intersection returns a new set with the intersection of the current set and the provided set.
+func (m *Set[K]) Intersection(set map[K]struct{}) *Set[K] {
+	out := NewSet[K]()
+	for k := range m.items {
+		if _, ok := set[k]; ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
+}
+
+// Difference returns a new set with the difference of the current set and the provided set.
+func (m *Set[K]) Difference(set map[K]struct{}) *Set[K] {
+	out := NewSet[K]()
+	for k := range m.items {
+		if _, ok := set[k]; !ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
+}
+
+// SymmetricDifference returns a new set with the symmetric difference of the current set and the provided set.
+func (m *Set[K]) SymmetricDifference(set map[K]struct{}) *Set[K] {
+	out := NewSet[K]()
+	for k := range m.items {
+		if _, ok := set[k]; !ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	for k := range set {
+		if _, ok := m.items[k]; !ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
 }
 
 // SafeSet is used like a set, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -229,4 +287,81 @@ func (m *SafeSet[K]) Range(f func(K) bool) bool {
 		}
 	}
 	return true
+}
+
+// Copy returns a copy of the set. It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) Copy() map[K]struct{} {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make(map[K]struct{}, len(m.set))
+	maps.Copy(out, m.set)
+
+	return out
+}
+
+// Union returns a new set with the union of the current set and the provided set.
+// It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) Union(set map[K]struct{}) *Set[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := NewSet[K]()
+	for k := range m.set {
+		out.items[k] = struct{}{}
+	}
+	for k := range set {
+		out.items[k] = struct{}{}
+	}
+	return out
+}
+
+// Intersection returns a new set with the intersection of the current set and the provided set.
+// It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) Intersection(set map[K]struct{}) *Set[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := NewSet[K]()
+	for k := range m.set {
+		if _, ok := set[k]; ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
+}
+
+// Difference returns a new set with the difference of the current set and the provided set.
+// It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) Difference(set map[K]struct{}) *Set[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := NewSet[K]()
+	for k := range m.set {
+		if _, ok := set[k]; !ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
+}
+
+// SymmetricDifference returns a new set with the symmetric difference of the current set and the provided set.
+// It is safe for concurrent/parallel use.
+func (m *SafeSet[K]) SymmetricDifference(set map[K]struct{}) *Set[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := NewSet[K]()
+	for k := range m.set {
+		if _, ok := set[k]; !ok {
+			out.items[k] = struct{}{}
+		}
+	}
+	for k := range set {
+		if !m.Has(k) {
+			out.items[k] = struct{}{}
+		}
+	}
+	return out
 }

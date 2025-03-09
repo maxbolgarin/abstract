@@ -91,6 +91,59 @@ func TestSetRange(t *testing.T) {
 	}
 }
 
+// TestSetCopy tests copying the Set.
+func TestSetCopy(t *testing.T) {
+	s := abstract.NewSet([]int{1, 2, 3})
+	copy := s.Copy()
+	if len(copy) != 3 {
+		t.Errorf("Expected set length to be 3, got %d", len(copy))
+	}
+}
+
+// TestSetUnion tests the Union method of Set.
+func TestSetUnion(t *testing.T) {
+	set1 := abstract.NewSet([]int{1, 2, 3})
+	set2 := abstract.NewSet([]int{4, 5, 6})
+
+	union := set1.Union(set2.Copy())
+	if union.Len() != 6 {
+		t.Errorf("Expected union length to be 6, got %d", union.Len())
+	}
+}
+
+// TestSetIntersection tests the Intersection method of Set.
+func TestSetIntersection(t *testing.T) {
+	set1 := abstract.NewSet([]int{1, 2, 3})
+	set2 := abstract.NewSet([]int{4, 5, 6})
+
+	intersection := set1.Intersection(set2.Copy())
+	if intersection.Len() != 0 {
+		t.Errorf("Expected intersection length to be 0, got %d", intersection.Len())
+	}
+}
+
+// TestSetDifference tests the Difference method of Set.
+func TestSetDifference(t *testing.T) {
+	set1 := abstract.NewSet([]int{1, 2, 3})
+	set2 := abstract.NewSet([]int{4, 5, 6})
+
+	difference := set1.Difference(set2.Copy())
+	if difference.Len() != 3 {
+		t.Errorf("Expected difference length to be 3, got %d", difference.Len())
+	}
+}
+
+// TestSetSymmetricDifference tests the SymmetricDifference method of Set.
+func TestSetSymmetricDifference(t *testing.T) {
+	set1 := abstract.NewSet([]int{1, 2, 3})
+	set2 := abstract.NewSet([]int{4, 5, 6})
+
+	symmetricDifference := set1.SymmetricDifference(set2.Copy())
+	if symmetricDifference.Len() != 6 {
+		t.Errorf("Expected symmetric difference length to be 6, got %d", symmetricDifference.Len())
+	}
+}
+
 // TestNewSafeSet tests creating a SafeSet and concurrent use.
 func TestNewSafeSet(t *testing.T) {
 	s := abstract.NewSafeSet[int]()
@@ -203,5 +256,58 @@ func TestSafeSetTransform(t *testing.T) {
 	}
 	if s.Has(1) || s.Has(3) {
 		t.Error("SafeSet should not have old values after transform")
+	}
+}
+
+// TestSafeSetCopy tests copying the SafeSet.
+func TestSafeSetCopy(t *testing.T) {
+	s := abstract.NewSafeSet([]int{1, 2, 3})
+	copy := s.Copy()
+	if len(copy) != 3 {
+		t.Errorf("Expected set length to be 3, got %d", len(copy))
+	}
+}
+
+// TestSafeSetUnion tests the Union method of SafeSet.
+func TestSafeSetUnion(t *testing.T) {
+	set1 := abstract.NewSafeSet([]int{1, 2, 3})
+	set2 := abstract.NewSafeSet([]int{4, 5, 6})
+
+	union := set1.Union(set2.Copy())
+	if union.Len() != 6 {
+		t.Errorf("Expected union length to be 6, got %d", union.Len())
+	}
+}
+
+// TestSafeSetIntersection tests the Intersection method of SafeSet.
+func TestSafeSetIntersection(t *testing.T) {
+	set1 := abstract.NewSafeSet([]int{1, 2, 3})
+	set2 := abstract.NewSafeSet([]int{4, 5, 6})
+
+	intersection := set1.Intersection(set2.Copy())
+	if intersection.Len() != 0 {
+		t.Errorf("Expected intersection length to be 0, got %d", intersection.Len())
+	}
+}
+
+// TestSafeSetDifference tests the Difference method of SafeSet.
+func TestSafeSetDifference(t *testing.T) {
+	set1 := abstract.NewSafeSet([]int{1, 2, 3})
+	set2 := abstract.NewSafeSet([]int{4, 5, 6})
+
+	difference := set1.Difference(set2.Copy())
+	if difference.Len() != 3 {
+		t.Errorf("Expected difference length to be 3, got %d", difference.Len())
+	}
+}
+
+// TestSafeSetSymmetricDifference tests the SymmetricDifference method of SafeSet.
+func TestSafeSetSymmetricDifference(t *testing.T) {
+	set1 := abstract.NewSafeSet([]int{1, 2, 3})
+	set2 := abstract.NewSafeSet([]int{4, 5, 6})
+
+	symmetricDifference := set1.SymmetricDifference(set2.Copy())
+	if symmetricDifference.Len() != 6 {
+		t.Errorf("Expected symmetric difference length to be 6, got %d", symmetricDifference.Len())
 	}
 }
