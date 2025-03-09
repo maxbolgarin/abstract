@@ -56,7 +56,7 @@ func TestSlice(t *testing.T) {
 	// Test Copy
 	slice.Append(3)
 	copy := slice.Copy()
-	if copy.Len() != 1 || copy.Get(0) != 3 {
+	if len(copy) != 1 || copy[0] != 3 {
 		t.Error("copy did not match original slice")
 	}
 

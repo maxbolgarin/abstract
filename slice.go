@@ -3,103 +3,111 @@ package abstract
 import "sync"
 
 // Slice is used like a common slice.
-type Slice[T any] []T
+type Slice[T any] struct {
+	items []T
+}
 
 // NewSlice returns a new [Slice] with empty slice.
-func NewSlice[T any](data ...[]T) Slice[T] {
+func NewSlice[T any](data ...[]T) *Slice[T] {
 	out := make([]T, 0, getSlicesLen(data...))
 	for _, v := range data {
 		out = append(out, v...)
 	}
-	return out
+	return &Slice[T]{
+		items: out,
+	}
 }
 
 // NewSliceFromItems returns a new [Slice] with the provided items.
-func NewSliceFromItems[T any](data ...T) Slice[T] {
-	return data
+func NewSliceFromItems[T any](data ...T) *Slice[T] {
+	return &Slice[T]{
+		items: data,
+	}
 }
 
 // NewSliceWithSize returns a new [Slice] with slice inited using the provided size.
-func NewSliceWithSize[T any](size int) Slice[T] {
-	return make([]T, 0, size)
+func NewSliceWithSize[T any](size int) *Slice[T] {
+	return &Slice[T]{
+		items: make([]T, 0, size),
+	}
 }
 
 // Get returns the value for the provided key or the default type value if the key is not present in the slice.
 func (s *Slice[T]) Get(index int) T {
-	if index >= len(*s) {
+	if index >= len(s.items) {
 		var empty T
 		return empty
 	}
-	return (*s)[index]
+	return s.items[index]
 }
 
 // Append adds a new element to the end of the slice.
 func (s *Slice[T]) Append(v ...T) {
-	*s = append(*s, v...)
+	s.items = append(s.items, v...)
 }
 
 // Pop removes the last element of the slice and returns it.
 func (s *Slice[T]) Pop() T {
-	if len(*s) == 0 {
+	if len(s.items) == 0 {
 		var empty T
 		return empty
 	}
 
-	elem := (*s)[len(*s)-1]
-	*s = (*s)[:len(*s)-1]
+	elem := s.items[len(s.items)-1]
+	s.items = s.items[:len(s.items)-1]
 	return elem
 }
 
 // Delete removes the key and associated value from the slice, does nothing if the key is not present in the slice,
 // returns true if the key was deleted.
 func (s *Slice[T]) Delete(index int) bool {
-	if index >= len(*s) {
+	if index >= len(s.items) {
 		return false
 	}
-	*s = append((*s)[:index], (*s)[index+1:]...)
+	s.items = append(s.items[:index], s.items[index+1:]...)
 	return true
 }
 
 // Len returns the length of the slice.
 func (s *Slice[T]) Len() int {
-	return len(*s)
+	return len(s.items)
 }
 
 // IsEmpty returns true if the slice is empty. It is safe for concurrent/parallel use.
 func (s *Slice[T]) IsEmpty() bool {
-	return len(*s) == 0
+	return len(s.items) == 0
 }
 
 // Truncate truncates the slice to the provided size.
 func (s *Slice[T]) Truncate(size int) {
-	*s = (*s)[:size]
+	s.items = s.items[:size]
 }
 
 // Clear creates a new slice using make without size.
 func (s *Slice[T]) Clear() {
-	*s = make([]T, 0)
+	s.items = make([]T, 0)
 }
 
 // Copy returns a copy of the slice.
-func (s *Slice[T]) Copy() Slice[T] {
-	return append(make([]T, 0, len(*s)), *s...)
+func (s *Slice[T]) Copy() []T {
+	return append(make([]T, 0, len(s.items)), s.items...)
 }
 
 // Change changes the value for the provided key using provided function.
 func (s *Slice[T]) Change(index int, f func(T) T) {
-	(*s)[index] = f((*s)[index])
+	s.items[index] = f(s.items[index])
 }
 
 // Transform transforms all values of the slice using provided function.
 func (s *Slice[T]) Transform(f func(T) T) {
-	for i, v := range *s {
-		(*s)[i] = f(v)
+	for i, v := range s.items {
+		s.items[i] = f(v)
 	}
 }
 
 // Range calls the provided function for each element in the slice.
 func (s *Slice[T]) Range(f func(T) bool) bool {
-	for _, v := range *s {
+	for _, v := range s.items {
 		if !f(v) {
 			return false
 		}
@@ -109,7 +117,7 @@ func (s *Slice[T]) Range(f func(T) bool) bool {
 
 // Raw returns the underlying slice.
 func (s *Slice[T]) Raw() []T {
-	return *s
+	return s.items
 }
 
 // SafeSlice is used like a common slice, but it is protected with RW mutex, so it can be used in many goroutines.
