@@ -11,128 +11,136 @@ import (
 )
 
 // Map is used like a common map.
-type Map[K comparable, V any] map[K]V
+type Map[K comparable, V any] struct {
+	inner map[K]V
+}
 
 // NewMap returns a [Map] with an empty map.
-func NewMap[K comparable, V any](raw ...map[K]V) Map[K, V] {
+func NewMap[K comparable, V any](raw ...map[K]V) *Map[K, V] {
 	out := make(map[K]V, getMapsLength(raw...))
 	for _, v := range raw {
 		for k, v := range v {
 			out[k] = v
 		}
 	}
-	return out
+	return &Map[K, V]{
+		inner: out,
+	}
 }
 
 // NewMapFromPairs returns a [Map] with a map inited using the provided pairs.
-func NewMapFromPairs[K comparable, V any](pairs ...any) Map[K, V] {
+func NewMapFromPairs[K comparable, V any](pairs ...any) *Map[K, V] {
 	out := make(map[K]V, len(pairs)/2)
 	for i := 0; i < len(pairs); i += 2 {
 		out[pairs[i].(K)] = pairs[i+1].(V)
 	}
-	return out
+	return &Map[K, V]{
+		inner: out,
+	}
 }
 
 // NewMapWithSize returns a [Map] with a map inited using the provided size.
-func NewMapWithSize[K comparable, V any](size int) Map[K, V] {
-	return make(map[K]V, size)
+func NewMapWithSize[K comparable, V any](size int) *Map[K, V] {
+	return &Map[K, V]{
+		inner: make(map[K]V, size),
+	}
 }
 
 // Get returns the value for the provided key or the default type value if the key is not present in the map.
-func (m Map[K, V]) Get(key K) V {
-	return m[key]
+func (m *Map[K, V]) Get(key K) V {
+	return m.inner[key]
 }
 
 // Lookup returns the value for the provided key and true if the key is present in the map, the default value and false otherwise.
-func (m Map[K, V]) Lookup(key K) (V, bool) {
-	v, ok := m[key]
+func (m *Map[K, V]) Lookup(key K) (V, bool) {
+	v, ok := m.inner[key]
 	return v, ok
 }
 
 // Has returns true if the key is present in the map, false otherwise.
-func (m Map[K, V]) Has(key K) bool {
-	_, ok := m[key]
+func (m *Map[K, V]) Has(key K) bool {
+	_, ok := m.inner[key]
 	return ok
 }
 
 // Pop returns the value for the provided key and deletes it from map or default type value if key is not present.
-func (m Map[K, V]) Pop(key K) V {
-	val, ok := m[key]
+func (m *Map[K, V]) Pop(key K) V {
+	val, ok := m.inner[key]
 	if ok {
-		delete(m, key)
+		delete(m.inner, key)
 	}
 	return val
 }
 
 // Set sets the value to the map.
-func (m Map[K, V]) Set(key K, value V) {
-	m[key] = value
+func (m *Map[K, V]) Set(key K, value V) {
+	m.inner[key] = value
 }
 
 // SetIfNotPresent sets the value to the map if the key is not present,
 // returns the old value if the key was set, new value otherwise.
-func (m Map[K, V]) SetIfNotPresent(key K, value V) V {
-	if _, ok := m[key]; !ok {
-		m[key] = value
+func (m *Map[K, V]) SetIfNotPresent(key K, value V) V {
+	if _, ok := m.inner[key]; !ok {
+		m.inner[key] = value
 		return value
 	}
-	return m[key]
+	return m.inner[key]
 }
 
 // Swap swaps the values for the provided keys and returns the old value.
-func (m Map[K, V]) Swap(key K, value V) V {
-	old := m[key]
-	m[key] = value
+func (m *Map[K, V]) Swap(key K, value V) V {
+	old := m.inner[key]
+	m.inner[key] = value
 	return old
 }
 
 // Delete removes keys and associated values from the map, does nothing if the key is not present in the map,
 // returns true if the key was deleted
-func (m Map[K, V]) Delete(keys ...K) (deleted bool) {
+func (m *Map[K, V]) Delete(keys ...K) (deleted bool) {
 	for _, key := range keys {
-		if _, ok := m[key]; ok {
+		if _, ok := m.inner[key]; ok {
 			deleted = true
-			delete(m, key)
+			delete(m.inner, key)
 		}
 	}
 	return deleted
 }
 
 // Len returns the length of the map.
-func (m Map[K, V]) Len() int {
-	return len(m)
+func (m *Map[K, V]) Len() int {
+	return len(m.inner)
 }
 
 // IsEmpty returns true if the map is empty. It is safe for concurrent/parallel use.
-func (m Map[K, V]) IsEmpty() bool {
-	return len(m) == 0
+func (m *Map[K, V]) IsEmpty() bool {
+	return len(m.inner) == 0
 }
 
 // Keys returns a slice of keys of the map.
-func (m Map[K, V]) Keys() []K {
-	return lang.Keys(m)
+func (m *Map[K, V]) Keys() []K {
+	return lang.Keys(m.inner)
 }
 
 // Values returns a slice of values of the map.
-func (m Map[K, V]) Values() []V {
-	return lang.Values(m)
+func (m *Map[K, V]) Values() []V {
+	return lang.Values(m.inner)
 }
 
 // Change changes the value for the provided key using provided function.
-func (m Map[K, V]) Change(key K, f func(K, V) V) {
-	m[key] = f(key, m[key])
+func (m *Map[K, V]) Change(key K, f func(K, V) V) {
+	m.inner[key] = f(key, m.inner[key])
 }
 
 // Transform transforms all values of the map using provided function.
-func (m Map[K, V]) Transform(f func(K, V) V) {
-	for k, v := range m {
-		m[k] = f(k, v)
+func (m *Map[K, V]) Transform(f func(K, V) V) {
+	for k, v := range m.inner {
+		m.inner[k] = f(k, v)
 	}
 }
 
 // Range calls the provided function for each key-value pair in the map.
-func (m Map[K, V]) Range(f func(K, V) bool) bool {
-	for k, v := range m {
+func (m *Map[K, V]) Range(f func(K, V) bool) bool {
+	for k, v := range m.inner {
 		if !f(k, v) {
 			return false
 		}
@@ -141,13 +149,13 @@ func (m Map[K, V]) Range(f func(K, V) bool) bool {
 }
 
 // Copy returns another map that is a copy of the underlying map.
-func (m Map[K, V]) Copy() map[K]V {
-	return lang.CopyMap(m)
+func (m *Map[K, V]) Copy() map[K]V {
+	return lang.CopyMap(m.inner)
 }
 
 // Raw returns the underlying map.
-func (m Map[K, V]) Raw() map[K]V {
-	return m
+func (m *Map[K, V]) Raw() map[K]V {
+	return m.inner
 }
 
 // SafeMap is used like a common map, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -389,29 +397,29 @@ type Entity[K comparable] interface {
 // EntityMap is a map of entities. It has all methods of Map with some new ones.
 // It is not safe for concurrent/parallel, use [SafeEntityMap] if you need it.
 type EntityMap[K comparable, T Entity[K]] struct {
-	Map[K, T]
+	*Map[K, T]
 }
 
 // NewEntityMap returns a new EntityMap from the provided map.
-func NewEntityMap[K comparable, T Entity[K]](raw ...map[K]T) EntityMap[K, T] {
-	return EntityMap[K, T]{
+func NewEntityMap[K comparable, T Entity[K]](raw ...map[K]T) *EntityMap[K, T] {
+	return &EntityMap[K, T]{
 		Map: NewMap(raw...),
 	}
 }
 
 // NewEntityMapWithSize returns a new EntityMap with the provided size.
-func NewEntityMapWithSize[K comparable, T Entity[K]](size int) EntityMap[K, T] {
-	return EntityMap[K, T]{
+func NewEntityMapWithSize[K comparable, T Entity[K]](size int) *EntityMap[K, T] {
+	return &EntityMap[K, T]{
 		Map: NewMapWithSize[K, T](size),
 	}
 }
 
 // LookupByName returns the value for the provided name.
 // It is not case-sensetive according to name.
-func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
+func (s *EntityMap[K, T]) LookupByName(name string) (T, bool) {
 	name = strings.ToLower(name)
 
-	for _, h := range s.Map {
+	for _, h := range s.Map.inner {
 		if strings.ToLower(h.GetName()) == name {
 			return h, true
 		}
@@ -427,13 +435,13 @@ func (s EntityMap[K, T]) LookupByName(name string) (T, bool) {
 // It returns the order of the entity.
 func (s *EntityMap[K, T]) Set(info T) int {
 	id := info.GetID()
-	old, ok := s.Map[id]
+	old, ok := s.Map.inner[id]
 	if ok {
 		info = info.SetOrder(old.GetOrder()).(T)
 	} else {
-		info = info.SetOrder(len(s.Map)).(T)
+		info = info.SetOrder(len(s.Map.inner)).(T)
 	}
-	s.Map[id] = info
+	s.Map.inner[id] = info
 
 	return info.GetOrder()
 }
@@ -442,21 +450,21 @@ func (s *EntityMap[K, T]) Set(info T) int {
 // Better to use [EntityMap.Set] to prevent from order errors.
 // It returns the order of the entity.
 func (s *EntityMap[K, T]) SetManualOrder(info T) int {
-	s.Map[info.GetID()] = info
+	s.Map.inner[info.GetID()] = info
 	return info.GetOrder()
 }
 
 // AllOrdered returns all values in order.
 func (s *EntityMap[K, T]) AllOrdered() []T {
 	var (
-		nOfItems   = len(s.Map)
+		nOfItems   = len(s.Map.inner)
 		out        = make([]T, nOfItems)
 		seen       = make([]bool, nOfItems)
 		broken     []T
 		seenBroken bool
 	)
 
-	for _, h := range s.Map {
+	for _, h := range s.Map.inner {
 		order := h.GetOrder()
 		if order < 0 || order >= nOfItems || seen[order] {
 			seenBroken = true
@@ -489,8 +497,8 @@ func (s *EntityMap[K, T]) AllOrdered() []T {
 }
 
 // NextOrder returns the next order.
-func (s EntityMap[K, T]) NextOrder() int {
-	return len(s.Map)
+func (s *EntityMap[K, T]) NextOrder() int {
+	return len(s.Map.inner)
 }
 
 // ChangeOrder changes the order of the values.
@@ -504,15 +512,15 @@ func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
 			ord = maxOrder
 			maxOrder++
 		}
-		s.Map[item.GetID()] = item.SetOrder(ord).(T)
+		s.Map.inner[item.GetID()] = item.SetOrder(ord).(T)
 	}
 }
 
 // Delete deletes values for the provided keys.
 // It reorders all remaining values.
-func (s EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
+func (s *EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 	for _, key := range keys {
-		toDelete, ok := s.Map[key]
+		toDelete, ok := s.Map.inner[key]
 		if !ok {
 			continue
 		}
@@ -522,14 +530,14 @@ func (s EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 
 		for i, h := range ordered {
 			if i == deleteOrder {
-				delete(s.Map, key)
+				delete(s.Map.inner, key)
 				deleted = true
 				continue
 			}
 			if i > deleteOrder {
 				h = h.SetOrder(h.GetOrder() - 1).(T)
 			}
-			s.Map[h.GetID()] = h
+			s.Map.inner[h.GetID()] = h
 		}
 	}
 	return deleted
@@ -542,15 +550,15 @@ type SafeEntityMap[K comparable, T Entity[K]] struct {
 }
 
 // NewSafeEntityMap returns a new SafeEntityMap from the provided map.
-func NewSafeEntityMap[K comparable, T Entity[K]](raw ...map[K]T) SafeEntityMap[K, T] {
-	return SafeEntityMap[K, T]{
+func NewSafeEntityMap[K comparable, T Entity[K]](raw ...map[K]T) *SafeEntityMap[K, T] {
+	return &SafeEntityMap[K, T]{
 		SafeMap: NewSafeMap(raw...),
 	}
 }
 
 // NewSafeEntityMapWithSize returns a new SafeEntityMap with the provided size.
-func NewSafeEntityMapWithSize[K comparable, T Entity[K]](size int) SafeEntityMap[K, T] {
-	return SafeEntityMap[K, T]{
+func NewSafeEntityMapWithSize[K comparable, T Entity[K]](size int) *SafeEntityMap[K, T] {
+	return &SafeEntityMap[K, T]{
 		SafeMap: NewSafeMapWithSize[K, T](size),
 	}
 }
@@ -660,7 +668,7 @@ func (s *SafeEntityMap[K, T]) allOrderedNoLock() []T {
 
 // NextOrder returns the next order number.
 // It is safe for concurrent/parallel use.
-func (s SafeEntityMap[K, T]) NextOrder() int {
+func (s *SafeEntityMap[K, T]) NextOrder() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
