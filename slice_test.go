@@ -140,6 +140,31 @@ func TestSlice(t *testing.T) {
 	if slice.Get(0) != 2 || slice.Get(1) != 4 || slice.Get(2) != 6 {
 		t.Error("expected transformed elements to match original slice")
 	}
+	var counter = 1
+	iter := slice.Iter()
+	for x := range iter {
+		if x != counter*2 {
+			t.Errorf("Expected %d, got %d", counter, x)
+		}
+		counter++
+	}
+	if counter != 4 {
+		t.Errorf("Expected 3, got %d", counter)
+	}
+	counter = 1
+	iter2 := slice.Iter2()
+	for x, y := range iter2 {
+		if x != counter-1 {
+			t.Errorf("Expected %d, got %d", counter, x)
+		}
+		if y != counter*2 {
+			t.Errorf("Expected %d, got %d", counter*2, y)
+		}
+		counter++
+	}
+	if counter != 4 {
+		t.Errorf("Expected 3, got %d", counter)
+	}
 }
 
 func TestChangeSlice(t *testing.T) {
@@ -246,6 +271,14 @@ func TestSafeSlice(t *testing.T) {
 	}
 	if slice.Get(1) != 7 {
 		t.Errorf("expected element 7, got %d", slice.Get(1))
+	}
+	iter := slice.Iter()
+	for x := range iter {
+		t.Log(x)
+	}
+	iter2 := slice.Iter2()
+	for x, y := range iter2 {
+		t.Log(x, y)
 	}
 	slice.Truncate(2)
 	if slice.Len() != 2 {

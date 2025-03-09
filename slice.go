@@ -1,6 +1,10 @@
 package abstract
 
-import "sync"
+import (
+	"iter"
+	"slices"
+	"sync"
+)
 
 // Slice is used like a common slice.
 type Slice[T any] struct {
@@ -123,6 +127,16 @@ func (s *Slice[T]) Range(f func(T) bool) bool {
 // Raw returns the underlying slice.
 func (s *Slice[T]) Raw() []T {
 	return s.items
+}
+
+// Iter returns an iterator over the slice values.
+func (s *Slice[T]) Iter() iter.Seq[T] {
+	return slices.Values(s.items)
+}
+
+// Iter2 returns an iterator over the slice values and their indexes.
+func (s *Slice[T]) Iter2() iter.Seq2[int, T] {
+	return slices.All(s.items)
 }
 
 // SafeSlice is used like a common slice, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -289,6 +303,26 @@ func (s *SafeSlice[T]) Raw() []T {
 	defer s.mu.RUnlock()
 
 	return s.items
+}
+
+// Iter returns an iterator over the slice values.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE SLICE METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (s *SafeSlice[T]) Iter() iter.Seq[T] {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return slices.Values(s.items)
+}
+
+// Iter2 returns an iterator over the slice values and their indexes.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE SLICE METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (s *SafeSlice[T]) Iter2() iter.Seq2[int, T] {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return slices.All(s.items)
 }
 
 func getSlicesLen[T any](slices ...[]T) int {
