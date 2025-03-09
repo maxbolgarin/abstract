@@ -1,6 +1,7 @@
 package abstract
 
 import (
+	"iter"
 	"maps"
 	"sync"
 
@@ -105,6 +106,16 @@ func (m *Set[K]) Range(f func(K) bool) bool {
 		}
 	}
 	return true
+}
+
+// Raw returns the underlying map.
+func (m *Set[K]) Raw() map[K]struct{} {
+	return m.items
+}
+
+// Iter returns a channel that yields each key in the set.
+func (m *Set[K]) Iter() iter.Seq[K] {
+	return maps.Keys(m.items)
 }
 
 // Copy returns a copy of the set.
@@ -287,6 +298,24 @@ func (m *SafeSet[K]) Range(f func(K) bool) bool {
 		}
 	}
 	return true
+}
+
+// Raw returns the underlying map.
+func (m *SafeSet[K]) Raw() map[K]struct{} {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.set
+}
+
+// Iter returns a channel that yields each key in the set.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE SET METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (m *SafeSet[K]) Iter() iter.Seq[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return maps.Keys(m.set)
 }
 
 // Copy returns a copy of the set. It is safe for concurrent/parallel use.

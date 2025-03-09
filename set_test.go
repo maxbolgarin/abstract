@@ -100,6 +100,21 @@ func TestSetCopy(t *testing.T) {
 	}
 }
 
+func TestSetIter(t *testing.T) {
+	s := abstract.NewSet([]int{1, 2, 3})
+	iter := s.Iter()
+	var counter int
+	for k := range iter {
+		counter++
+		if k != counter {
+			t.Errorf("Expected %d, got %d", counter, k)
+		}
+	}
+	if counter != 3 {
+		t.Errorf("Expected 3, got %d", counter)
+	}
+}
+
 // TestSetUnion tests the Union method of Set.
 func TestSetUnion(t *testing.T) {
 	set1 := abstract.NewSet([]int{1, 2, 3})
@@ -221,7 +236,7 @@ func TestSafeSetRange(t *testing.T) {
 
 // TestSafeSetClear tests clearing the SafeSet.
 func TestSafeSetClear(t *testing.T) {
-	s := abstract.NewSafeSet[int]([]int{1, 2, 3})
+	s := abstract.NewSafeSet([]int{1, 2, 3})
 	s.Clear()
 
 	if !s.IsEmpty() {
@@ -265,6 +280,21 @@ func TestSafeSetCopy(t *testing.T) {
 	copy := s.Copy()
 	if len(copy) != 3 {
 		t.Errorf("Expected set length to be 3, got %d", len(copy))
+	}
+}
+
+func TestSafeSetIter(t *testing.T) {
+	s := abstract.NewSafeSet([]int{1, 2, 3})
+	iter := s.Iter()
+	var counter int
+	for k := range iter {
+		counter++
+		if k != counter {
+			t.Errorf("Expected %d, got %d", counter, k)
+		}
+	}
+	if counter != 3 {
+		t.Errorf("Expected 3, got %d", counter)
 	}
 }
 
