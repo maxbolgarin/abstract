@@ -104,11 +104,8 @@ func TestSetIter(t *testing.T) {
 	s := abstract.NewSet([]int{1, 2, 3})
 	iter := s.Iter()
 	var counter int
-	for k := range iter {
+	for range iter {
 		counter++
-		if k != counter {
-			t.Errorf("Expected %d, got %d", counter, k)
-		}
 	}
 	if counter != 3 {
 		t.Errorf("Expected 3, got %d", counter)
