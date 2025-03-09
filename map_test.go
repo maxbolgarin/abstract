@@ -251,6 +251,35 @@ func TestClear(t *testing.T) {
 	}
 }
 
+func TestMapIter(t *testing.T) {
+	m := abstract.NewMap[string, int]()
+	m.Set("key1", 1)
+	m.Set("key2", 2)
+	iter := m.Iter()
+	for k, v := range iter {
+		if k != "key1" && k != "key2" {
+			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
+		}
+		if v != 1 && v != 2 {
+			t.Errorf("Expected to visit value 1 and 2, got %d", v)
+		}
+	}
+
+	iter2 := m.IterKeys()
+	for k := range iter2 {
+		if k != "key1" && k != "key2" {
+			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
+		}
+	}
+
+	iter3 := m.IterValues()
+	for v := range iter3 {
+		if v != 1 && v != 2 {
+			t.Errorf("Expected to visit value 1 and 2, got %d", v)
+		}
+	}
+}
+
 func TestSafeMap_NewSafeMap(t *testing.T) {
 	m := abstract.NewSafeMap[string, int]()
 	if m.Len() != 0 {
@@ -581,6 +610,33 @@ func TestSafeMap_Refill(t *testing.T) {
 
 	if val, ok := m.Lookup("key4"); !ok || val != 40 {
 		t.Errorf("Expected key4 to have value 40, got %d", val)
+	}
+}
+
+func TestSafeMap_Iter(t *testing.T) {
+	m := abstract.NewSafeMap[string, int]()
+	m.Set("key1", 1)
+	m.Set("key2", 2)
+	iter := m.Iter()
+	for k, v := range iter {
+		if k != "key1" && k != "key2" {
+			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
+		}
+		if v != 1 && v != 2 {
+			t.Errorf("Expected to visit value 1 and 2, got %d", v)
+		}
+	}
+	iter2 := m.IterKeys()
+	for k := range iter2 {
+		if k != "key1" && k != "key2" {
+			t.Errorf("Expected to visit key 'key1' and 'key2', got %s", k)
+		}
+	}
+	iter3 := m.IterValues()
+	for v := range iter3 {
+		if v != 1 && v != 2 {
+			t.Errorf("Expected to visit value 1 and 2, got %d", v)
+		}
 	}
 }
 

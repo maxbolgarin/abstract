@@ -2,6 +2,8 @@ package abstract
 
 import (
 	"crypto/rand"
+	"iter"
+	"maps"
 	"math/big"
 	"sort"
 	"strings"
@@ -161,6 +163,21 @@ func (m *Map[K, V]) Raw() map[K]V {
 // Clear creates a new map using make without size.
 func (m *Map[K, V]) Clear() {
 	m.inner = make(map[K]V)
+}
+
+// IterKeys returns an iterator over the map keys.
+func (m *Map[K, V]) IterKeys() iter.Seq[K] {
+	return maps.Keys(m.inner)
+}
+
+// IterValues returns an iterator over the map values.
+func (m *Map[K, V]) IterValues() iter.Seq[V] {
+	return maps.Values(m.inner)
+}
+
+// Iter returns an iterator over the map.
+func (m *Map[K, V]) Iter() iter.Seq2[K, V] {
+	return maps.All(m.inner)
 }
 
 // SafeMap is used like a common map, but it is protected with RW mutex, so it can be used in many goroutines.
@@ -381,6 +398,36 @@ func (m *SafeMap[K, V]) Raw() map[K]V {
 	defer m.mu.RUnlock()
 
 	return m.items
+}
+
+// IterValues returns an iterator over the map values.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE MAP METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (m *SafeMap[K, V]) IterValues() iter.Seq[V] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return maps.Values(m.items)
+}
+
+// IterKeys returns an iterator over the map keys.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE MAP METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (m *SafeMap[K, V]) IterKeys() iter.Seq[K] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return maps.Keys(m.items)
+}
+
+// Iter returns an iterator over the map.
+// It is safe for concurrent/parallel use.
+// DON'T USE SAFE MAP METHOD INSIDE LOOP TO PREVENT FROM DEADLOCK!
+func (m *SafeMap[K, V]) Iter() iter.Seq2[K, V] {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return maps.All(m.items)
 }
 
 func getMapsLength[K comparable, V any](maps ...map[K]V) int {
