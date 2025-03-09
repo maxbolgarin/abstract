@@ -41,11 +41,6 @@ func (s *Slice[T]) Get(index int) T {
 	return s.items[index]
 }
 
-// Append adds a new element to the end of the slice.
-func (s *Slice[T]) Append(v ...T) {
-	s.items = append(s.items, v...)
-}
-
 // Pop removes the last element of the slice and returns it.
 func (s *Slice[T]) Pop() T {
 	if len(s.items) == 0 {
@@ -58,6 +53,16 @@ func (s *Slice[T]) Pop() T {
 	return elem
 }
 
+// Append adds a new element to the end of the slice.
+func (s *Slice[T]) Append(v ...T) {
+	s.items = append(s.items, v...)
+}
+
+// AddFront adds a new elements to the front of the slice.
+func (s *Slice[T]) AddFront(v ...T) {
+	s.items = append(v, s.items...)
+}
+
 // Delete removes the key and associated value from the slice, does nothing if the key is not present in the slice,
 // returns true if the key was deleted.
 func (s *Slice[T]) Delete(index int) bool {
@@ -68,16 +73,6 @@ func (s *Slice[T]) Delete(index int) bool {
 	return true
 }
 
-// Len returns the length of the slice.
-func (s *Slice[T]) Len() int {
-	return len(s.items)
-}
-
-// IsEmpty returns true if the slice is empty. It is safe for concurrent/parallel use.
-func (s *Slice[T]) IsEmpty() bool {
-	return len(s.items) == 0
-}
-
 // Truncate truncates the slice to the provided size.
 func (s *Slice[T]) Truncate(size int) {
 	s.items = s.items[:size]
@@ -86,6 +81,16 @@ func (s *Slice[T]) Truncate(size int) {
 // Clear creates a new slice using make without size.
 func (s *Slice[T]) Clear() {
 	s.items = make([]T, 0)
+}
+
+// Len returns the length of the slice.
+func (s *Slice[T]) Len() int {
+	return len(s.items)
+}
+
+// IsEmpty returns true if the slice is empty. It is safe for concurrent/parallel use.
+func (s *Slice[T]) IsEmpty() bool {
+	return len(s.items) == 0
 }
 
 // Copy returns a copy of the slice.
@@ -169,6 +174,14 @@ func (s *SafeSlice[T]) Append(v ...T) {
 	defer s.mu.Unlock()
 
 	s.items = append(s.items, v...)
+}
+
+// AddFront adds a new elements to the front of the slice.
+func (s *SafeSlice[T]) AddFront(v ...T) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.items = append(v, s.items...)
 }
 
 // Pop removes the last element of the slice and returns it.

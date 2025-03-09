@@ -27,11 +27,21 @@ func TestSlice(t *testing.T) {
 		t.Errorf("expected default zero value, got %d", slice.Get(1))
 	}
 
+	// Test AddFront
+	slice.AddFront(2)
+	if slice.Get(0) != 2 {
+		t.Errorf("expected element 2, got %d", slice.Get(0))
+	}
+	if slice.Get(1) != 1 {
+		t.Errorf("expected element 1, got %d", slice.Get(1))
+	}
+
 	// Test Pop
 	popped := slice.Pop()
 	if popped != 1 {
 		t.Errorf("expected popped element 1, got %d", popped)
 	}
+	slice.Pop()
 	if !slice.IsEmpty() {
 		t.Error("expected slice to be empty after pop")
 	}
@@ -209,7 +219,7 @@ func TestSafeSlice(t *testing.T) {
 		t.Error("expected safe slice to be empty after clear")
 	}
 
-	slice := abstract.NewSafeSlice[int]([]int{1, 2, 3})
+	slice := abstract.NewSafeSlice([]int{1, 2, 3})
 	slice.Transform(func(x int) int { return x * 2 })
 	if slice.Get(0) != 2 || slice.Get(1) != 4 || slice.Get(2) != 6 {
 		t.Error("expected transformed elements to match original slice")
@@ -229,6 +239,13 @@ func TestSafeSlice(t *testing.T) {
 	slice.Append(1, 2, 3, 4, 5)
 	if slice.Len() != 5 {
 		t.Errorf("expected length 5, got %d", slice.Len())
+	}
+	slice.AddFront(6, 7, 8)
+	if slice.Get(0) != 6 {
+		t.Errorf("expected element 6, got %d", slice.Get(0))
+	}
+	if slice.Get(1) != 7 {
+		t.Errorf("expected element 7, got %d", slice.Get(1))
 	}
 	slice.Truncate(2)
 	if slice.Len() != 2 {
