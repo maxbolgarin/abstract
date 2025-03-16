@@ -57,7 +57,7 @@ func TestSetEntitySize(t *testing.T) {
 func TestNew(t *testing.T) {
 	abstract.SetEntitySize(4)
 	entityType := abstract.EntityType("TEST")
-	id := abstract.New(entityType)
+	id := abstract.NewID(entityType)
 
 	// Check the prefix is our entity type
 	if id[:4] != "TEST" {
@@ -73,11 +73,11 @@ func TestNew(t *testing.T) {
 
 // TestNewTest tests the NewTest function
 func TestNewTest(t *testing.T) {
-	id := abstract.NewTest()
+	id := abstract.NewTestID()
 
 	// Check the prefix is the Test entity type
-	if id[:4] != abstract.Test.String() {
-		t.Errorf("Expected ID to start with '%s', got '%s'", abstract.Test.String(), id[:4])
+	if id[:4] != abstract.TestIDEntity.String() {
+		t.Errorf("Expected ID to start with '%s', got '%s'", abstract.TestIDEntity.String(), id[:4])
 	}
 
 	// Check the total length
@@ -93,8 +93,8 @@ func TestFrom(t *testing.T) {
 	originalType := abstract.EntityType("ORIG")
 	newType := abstract.EntityType("NEWS")
 
-	originalID := abstract.New(originalType)
-	newID := abstract.From(originalID, newType)
+	originalID := abstract.NewID(originalType)
+	newID := abstract.FromID(originalID, newType)
 
 	// Check the prefix changed
 	if newID[:4] != "NEWS" {
@@ -113,7 +113,7 @@ func TestFromShort(t *testing.T) {
 	newType := abstract.EntityType("NEWS")
 
 	shortID := "123" // Shorter than entity type
-	newID := abstract.From(shortID, newType)
+	newID := abstract.FromID(shortID, newType)
 
 	expected := "NEWS123"
 	if newID != expected {
@@ -125,7 +125,7 @@ func TestFromShort(t *testing.T) {
 func TestFetchEntityType(t *testing.T) {
 	abstract.SetEntitySize(4)
 	entityType := abstract.EntityType("TEST")
-	id := abstract.New(entityType)
+	id := abstract.NewID(entityType)
 
 	fetchedType := abstract.FetchEntityType(id)
 	if fetchedType.String() != "TEST" {
@@ -149,8 +149,8 @@ func TestWith(t *testing.T) {
 	abstract.SetEntitySize(4)
 	entityType := abstract.EntityType("CUST")
 
-	builder := abstract.With(entityType)
-	id := builder.New()
+	builder := abstract.WithEntityType(entityType)
+	id := builder.NewID()
 
 	// Check the prefix is our entity type
 	if id[:4] != "CUST" {

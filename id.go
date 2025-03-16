@@ -9,7 +9,7 @@ func (e EntityType) String() string {
 }
 
 const (
-	Test EntityType = "00x0"
+	TestIDEntity EntityType = "00x0"
 
 	defaultIDSize = 12
 )
@@ -28,21 +28,21 @@ func SetEntitySize(size int) {
 }
 
 func init() {
-	RegisterEntityType(Test.String())
+	RegisterEntityType(TestIDEntity.String())
 }
 
-// New is used to generate a new ID based on provided entity type.
-func New(entityType EntityType) string {
+// NewID is used to generate a new ID based on provided entity type.
+func NewID(entityType EntityType) string {
 	return entityType.String() + GetRandomString(defaultIDSize)
 }
 
-// NewTest is used to generate a new ID based on Test entity type.
-func NewTest() string {
-	return New(Test)
+// NewTestID is used to generate a new ID based on Test entity type.
+func NewTestID() string {
+	return NewID(TestIDEntity)
 }
 
-// From changes entity type for the provided ID.
-func From(id string, t EntityType) string {
+// FromID changes entity type for the provided ID.
+func FromID(id string, t EntityType) string {
 	if len(id) <= len(t) {
 		return t.String() + id
 	}
@@ -61,12 +61,12 @@ type Builder struct {
 	t EntityType
 }
 
-func With(t EntityType) Builder {
+func WithEntityType(t EntityType) Builder {
 	return Builder{
 		t: t,
 	}
 }
 
-func (b Builder) New() string {
-	return New(b.t)
+func (b Builder) NewID() string {
+	return NewID(b.t)
 }
