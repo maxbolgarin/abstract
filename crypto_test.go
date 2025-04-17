@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"io"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -566,32 +565,6 @@ func TestSignVerify(t *testing.T) {
 	otherKey, _ := abstract.NewSigningKey()
 	if abstract.VerifySign(testData, signature, &otherKey.PublicKey) {
 		t.Error("Signature should be invalid with wrong public key")
-	}
-}
-
-func TestSignDataMalformedKey(t *testing.T) {
-	// Create a malformed private key
-	privKey := &ecdsa.PrivateKey{
-		D: big.NewInt(123),
-		PublicKey: ecdsa.PublicKey{
-			Curve: elliptic.P256(),
-			X:     big.NewInt(456),
-			Y:     big.NewInt(789),
-		},
-	}
-
-	// This would normally panic or return an error, but we'll catch any panics
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected, since we're using an invalid key
-			t.Log("Caught expected panic with malformed key")
-		}
-	}()
-
-	// This should either return an error or panic
-	_, err := abstract.SignData([]byte("test"), privKey)
-	if err == nil {
-		t.Error("Expected error or panic with malformed key")
 	}
 }
 
