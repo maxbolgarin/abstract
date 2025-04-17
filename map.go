@@ -32,10 +32,22 @@ func NewMap[K comparable, V any](raw ...map[K]V) *Map[K, V] {
 
 // NewMapFromPairs returns a [Map] with a map inited using the provided pairs.
 func NewMapFromPairs[K comparable, V any](pairs ...any) *Map[K, V] {
-	out := make(map[K]V, len(pairs)/2)
-	for i := 0; i < len(pairs); i += 2 {
-		out[pairs[i].(K)] = pairs[i+1].(V)
+	size := len(pairs) / 2
+	out := make(map[K]V, size)
+
+	// Ensure we don't go out of bounds if odd number of arguments
+	for i := 0; i < len(pairs)-1; i += 2 {
+		key, keyOk := pairs[i].(K)
+		value, valueOk := pairs[i+1].(V)
+
+		if !keyOk || !valueOk {
+			// If type assertion fails, skip this pair
+			continue
+		}
+
+		out[key] = value
 	}
+
 	return &Map[K, V]{
 		items: out,
 	}

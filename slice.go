@@ -70,7 +70,7 @@ func (s *Slice[T]) AddFront(v ...T) {
 // Delete removes the key and associated value from the slice, does nothing if the key is not present in the slice,
 // returns true if the key was deleted.
 func (s *Slice[T]) Delete(index int) bool {
-	if index >= len(s.items) {
+	if index < 0 || index >= len(s.items) {
 		return false
 	}
 	s.items = append(s.items[:index], s.items[index+1:]...)

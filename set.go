@@ -536,14 +536,14 @@ func (m *SafeSet[K]) SymmetricDifference(set map[K]struct{}) *Set[K] {
 		m.mu.RLock()
 	}
 
-	out := NewSet[K]()
+	out := NewSetWithSize[K](len(m.items) + len(set))
 	for k := range m.items {
 		if _, ok := set[k]; !ok {
 			out.items[k] = struct{}{}
 		}
 	}
 	for k := range set {
-		if !m.Has(k) {
+		if _, ok := m.items[k]; !ok {
 			out.items[k] = struct{}{}
 		}
 	}

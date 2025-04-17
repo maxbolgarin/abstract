@@ -45,6 +45,11 @@ func (s *Stack[T]) Pop() T {
 	last := len(s.mem) - 1
 	item := s.mem[last]
 	s.mem = s.mem[:last]
+	// Set the reference to nil to prevent memory leaks if T is a reference type
+	// This only has effect if T is a reference type
+	var zero T
+	s.mem = append(s.mem, zero)
+	s.mem = s.mem[:last]
 
 	return item
 }
@@ -58,6 +63,12 @@ func (s *Stack[T]) PopOK() (T, bool) {
 	last := len(s.mem) - 1
 	item := s.mem[last]
 	s.mem = s.mem[:last]
+	// Set the reference to nil to prevent memory leaks if T is a reference type
+	// This only has effect if T is a reference type
+	var zero T
+	s.mem = append(s.mem, zero)
+	s.mem = s.mem[:last]
+
 	return item, true
 }
 
@@ -246,33 +257,23 @@ func (s *UniqueStack[T]) Remove(item T) bool {
 	}
 
 	if indexToRemove >= len(s.mem) {
-		s.ind = make(map[T]int, cap(s.mem))
-		s.mem = make([]T, 0, cap(s.mem))
-		panic("impossible bug: index in map can't be greater than memory length, clean the stack to continue working")
+		// There's an inconsistency between index map and memory slice
+		// Just remove the item from the index map
+		delete(s.ind, item)
+		return true
 	}
 
+	// Update the index for the item at the end of the stack
+	if indexToRemove < len(s.mem)-1 {
+		lastItem := s.mem[len(s.mem)-1]
+		s.mem[indexToRemove] = lastItem
+		s.ind[lastItem] = indexToRemove
+	}
+
+	// Remove the last element from the stack
+	s.mem = s.mem[:len(s.mem)-1]
 	delete(s.ind, item)
 
-	for item, ind := range s.ind {
-		if ind < indexToRemove {
-			continue
-		}
-		if ind > indexToRemove {
-			s.ind[item] = ind - 1
-		}
-	}
-
-	if indexToRemove == len(s.mem)-1 {
-		s.mem = s.mem[:indexToRemove]
-		return true
-	}
-
-	if indexToRemove == 0 {
-		s.mem = s.mem[1:]
-		return true
-	}
-
-	s.mem = append(s.mem[:indexToRemove], s.mem[indexToRemove+1:]...)
 	return true
 }
 
