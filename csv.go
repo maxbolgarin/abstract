@@ -94,13 +94,22 @@ func (t *CSVTable) AddRow(id string, row map[string]string) {
 // the remaining rows will not have a value for this column.
 func (t *CSVTable) AppendColumn(column string, values []string) {
 	t.headers = append(t.headers, column)
-	var i int
-	for _, row := range t.data {
+
+	// Get a stable ordering of row IDs to ensure consistent assignment of values
+	rowIDs := make([]string, 0, len(t.data))
+	for id := range t.data {
+		rowIDs = append(rowIDs, id)
+	}
+
+	// Sort the row IDs to ensure consistent ordering
+	slices.Sort(rowIDs)
+
+	// Assign values to rows in a deterministic order
+	for i, id := range rowIDs {
 		if i >= len(values) {
 			break
 		}
-		row[column] = values[i]
-		i++
+		t.data[id][column] = values[i]
 	}
 }
 
