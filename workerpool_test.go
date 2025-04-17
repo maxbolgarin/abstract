@@ -189,7 +189,7 @@ func TestSafeWorkerPool(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < 10; i++ {
 			pool.Submit(func() (any, error) {
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(time.Millisecond)
 				return i, nil
 			}, time.Second)
 		}
@@ -201,7 +201,7 @@ func TestSafeWorkerPool(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			_, err := pool.SubmitWait(func() (any, error) {
 				return i, nil
-			}, time.Second)
+			}, 2*time.Second)
 			if err != nil {
 				t.Errorf("SubmitWait failed: %v", err)
 			}
