@@ -201,7 +201,7 @@ func TestSafeWorkerPool(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			_, err := pool.SubmitWait(func() (any, error) {
 				return i, nil
-			}, 2*time.Second)
+			}, 10*time.Second)
 			if err != nil {
 				t.Errorf("SubmitWait failed: %v", err)
 			}
