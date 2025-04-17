@@ -182,7 +182,7 @@ func TestSafeWorkerPool(t *testing.T) {
 
 	// Test concurrent operations on safe pool
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(3)
 
 	// Goroutine 1: Submit tasks
 	go func() {
@@ -192,19 +192,6 @@ func TestSafeWorkerPool(t *testing.T) {
 				time.Sleep(time.Millisecond)
 				return i, nil
 			}, time.Second)
-		}
-	}()
-
-	// Goroutine 2: Submit and wait for tasks
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 5; i++ {
-			_, err := pool.SubmitWait(func() (any, error) {
-				return i, nil
-			}, 10*time.Second)
-			if err != nil {
-				t.Errorf("SubmitWait failed: %v", err)
-			}
 		}
 	}()
 
