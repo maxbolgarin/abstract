@@ -361,12 +361,15 @@ func TestBytes(t *testing.T) {
 	records := [][]string{
 		{"ID", "Name", "Value"},
 		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+		{"row3", "Test3", "300"},
+		{"row4", "Test4", "400"},
 	}
 
 	table := abstract.NewCSVTable(records)
 
 	csvBytes := table.Bytes()
-	expected := "ID,Name,Value\n\"row1\",\"Test1\",\"100\"\n"
+	expected := "\"ID\",\"Name\",\"Value\"\n\"row1\",\"Test1\",\"100\"\n\"row2\",\"Test2\",\"200\"\n\"row3\",\"Test3\",\"300\"\n\"row4\",\"Test4\",\"400\"\n"
 	if string(csvBytes) != expected {
 		t.Errorf("Expected Bytes() = %q, got %q", expected, string(csvBytes))
 	}
@@ -735,7 +738,7 @@ func TestCSVTableSafeBytes(t *testing.T) {
 	table := abstract.NewCSVTableSafe(records)
 
 	csvBytes := table.Bytes()
-	expected := "ID,Name,Value\n\"row1\",\"Test1\",\"100\"\n"
+	expected := "\"ID\",\"Name\",\"Value\"\n\"row1\",\"Test1\",\"100\"\n"
 	if string(csvBytes) != expected {
 		t.Errorf("Expected Bytes() = %q, got %q", expected, string(csvBytes))
 	}
@@ -785,5 +788,93 @@ func TestCSVTableSafeUnwrap(t *testing.T) {
 
 	if !tableSafe.Has("directAccess") {
 		t.Errorf("Expected modifications to unwrapped table to affect safe table")
+	}
+}
+
+func TestSort(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row3", "Charlie", "300"},
+		{"row1", "Alpha", "100"},
+		{"row4", "Delta", "200"},
+		{"row2", "Bravo", "400"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Test ascending sort by Name
+	table.Sort("Name", abstract.ASCSort)
+
+	// Check if IDs are in the expected order after name-based sorting
+	ids := table.AllIDs()
+	expectedNameOrder := []string{"row1", "row2", "row3", "row4"} // Alpha, Bravo, Charlie, Delta
+
+	if !reflect.DeepEqual(ids, expectedNameOrder) {
+		t.Errorf("Expected IDs after sorting by Name ASC to be %v, got %v", expectedNameOrder, ids)
+	}
+
+	// Test descending sort by Value
+	table.Sort("Value", abstract.DESCSort)
+
+	ids = table.AllIDs()
+	expectedValueOrder := []string{"row2", "row3", "row4", "row1"} // 400, 300, 200, 100
+
+	if !reflect.DeepEqual(ids, expectedValueOrder) {
+		t.Errorf("Expected IDs after sorting by Value DESC to be %v, got %v", expectedValueOrder, ids)
+	}
+
+	// Test that row data is correctly accessible after sorting
+	if val := table.Value("row2", "Value"); val != "400" {
+		t.Errorf("Expected Value for row2 to be 400, got %s", val)
+	}
+
+	// Test sorting by non-existent column (should have no effect)
+	originalIDs := table.AllIDs()
+	table.Sort("NonExistentColumn", abstract.ASCSort)
+
+	if !reflect.DeepEqual(originalIDs, table.AllIDs()) {
+		t.Errorf("Expected no change when sorting by non-existent column")
+	}
+}
+
+func TestCSVTableSafeSort(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row3", "Charlie", "300"},
+		{"row1", "Alpha", "100"},
+		{"row4", "Delta", "200"},
+		{"row2", "Bravo", "400"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	// Test ascending sort by Name
+	table.Sort("Name", abstract.ASCSort)
+
+	// Check if IDs are in the expected order after name-based sorting
+	ids := table.AllIDs()
+	expectedNameOrder := []string{"row1", "row2", "row3", "row4"} // Alpha, Bravo, Charlie, Delta
+
+	if !reflect.DeepEqual(ids, expectedNameOrder) {
+		t.Errorf("Expected IDs after sorting by Name ASC to be %v, got %v", expectedNameOrder, ids)
+	}
+
+	// Test descending sort by Value
+	table.Sort("Value", abstract.DESCSort)
+
+	ids = table.AllIDs()
+	expectedValueOrder := []string{"row2", "row3", "row4", "row1"} // 400, 300, 200, 100
+
+	if !reflect.DeepEqual(ids, expectedValueOrder) {
+		t.Errorf("Expected IDs after sorting by Value DESC to be %v, got %v", expectedValueOrder, ids)
+	}
+
+	// Verify that we can still look up values by ID after sorting
+	val, exists := table.LookupRow("row2")
+	if !exists {
+		t.Errorf("Expected to find row2 after sorting")
+	}
+	if val["Value"] != "400" {
+		t.Errorf("Expected Value for row2 to be 400, got %s", val["Value"])
 	}
 }
