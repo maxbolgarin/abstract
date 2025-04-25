@@ -189,6 +189,30 @@ func (t *CSVTable) LookupRow(slug string) (map[string]string, bool) {
 	return result, true
 }
 
+// RowSorted returns a map of ID to row data in the original sorted order.
+func (t *CSVTable) RowSorted(id string) []string {
+	index, ok := t.idIndex[id]
+	if !ok {
+		return nil
+	}
+	if index < 0 || index >= len(t.rows) {
+		return nil
+	}
+	return t.rows[index]
+}
+
+// RowSorted returns a map of ID to row data in the original sorted order.
+func (t *CSVTable) LookupRowSorted(id string) ([]string, bool) {
+	index, ok := t.idIndex[id]
+	if !ok {
+		return nil, false
+	}
+	if index < 0 || index >= len(t.rows) {
+		return nil, false
+	}
+	return t.rows[index], true
+}
+
 // All returns all rows in the table as a map of ID to row data.
 func (t *CSVTable) All() map[string]map[string]string {
 	result := make(map[string]map[string]string, len(t.ids))
@@ -224,6 +248,19 @@ func (t *CSVTable) AllRows() []map[string]string {
 	}
 
 	return rows
+}
+
+// AllSorted returns all rows in the table as a slice of maps, preserving the original order.
+func (t *CSVTable) AllSorted() [][]string {
+	result := make([][]string, len(t.rows))
+
+	for i, row := range t.rows {
+		rowCopy := make([]string, len(row))
+		copy(rowCopy, row)
+		result[i] = rowCopy
+	}
+
+	return result
 }
 
 // Copy creates a deep copy of the CSVTable.
@@ -380,10 +417,10 @@ const (
 // Sort reorders the table rows based on the values in the specified column.
 // If the column does not exist, no sorting is performed.
 // The direction parameter determines whether sorting is done in ascending or descending order.
-func (t *CSVTable) Sort(column string, direction SortDirection) {
+func (t *CSVTable) Sort(column string, direction SortDirection) *CSVTable {
 	colIndex, exists := t.headerIndex[column]
 	if !exists {
-		return
+		return t
 	}
 
 	// Create a stable sort to preserve the original order when values are equal
@@ -403,6 +440,8 @@ func (t *CSVTable) Sort(column string, direction SortDirection) {
 	for i, id := range t.ids {
 		t.idIndex[id] = i
 	}
+
+	return t
 }
 
 // CSVTableSafe is a thread-safe wrapper around CSVTable that provides
@@ -542,4 +581,25 @@ func (t *CSVTableSafe) Sort(column string, direction SortDirection) {
 // goroutines are accessing the table.
 func (t *CSVTableSafe) Unwrap() *CSVTable {
 	return t.table
+}
+
+// AllSorted returns all rows in the table as a slice of maps, preserving the original order.
+func (t *CSVTableSafe) AllSorted() [][]string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.table.AllSorted()
+}
+
+// RowSorted returns a map of ID to row data in the original sorted order.
+func (t *CSVTableSafe) RowSorted(id string) []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.table.RowSorted(id)
+}
+
+// LookupRowSorted returns a map of ID to row data in the original sorted order.
+func (t *CSVTableSafe) LookupRowSorted(id string) ([]string, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.table.LookupRowSorted(id)
 }

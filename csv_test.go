@@ -791,6 +791,251 @@ func TestCSVTableSafeUnwrap(t *testing.T) {
 	}
 }
 
+func TestAllSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row3", "Charlie", "300"},
+		{"row1", "Alpha", "100"},
+		{"row4", "Delta", "200"},
+		{"row2", "Bravo", "400"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Get sorted rows
+	sortedRows := table.AllSorted()
+
+	// Should have the same number of rows as in records (minus header)
+	if len(sortedRows) != len(records)-1 {
+		t.Errorf("Expected %d rows, got %d", len(records)-1, len(sortedRows))
+	}
+
+	// Check that rows are in original insertion order
+	if sortedRows[0][0] != "row3" {
+		t.Errorf("Expected first row ID to be row3, got %s", sortedRows[0][0])
+	}
+	if sortedRows[1][0] != "row1" {
+		t.Errorf("Expected second row ID to be row1, got %s", sortedRows[1][0])
+	}
+	if sortedRows[2][0] != "row4" {
+		t.Errorf("Expected third row ID to be row4, got %s", sortedRows[2][0])
+	}
+	if sortedRows[3][0] != "row2" {
+		t.Errorf("Expected fourth row ID to be row2, got %s", sortedRows[3][0])
+	}
+
+	// After sorting, the order should change but AllSorted should still return original order
+	table.Sort("Name", abstract.ASCSort)
+	sortedRows = table.AllSorted()
+
+	// Check that rows are still in original insertion order despite table sort
+	if sortedRows[0][0] != "row1" {
+		t.Errorf("Expected first row ID to be row1, got %s", sortedRows[0][0])
+	}
+	if sortedRows[1][0] != "row2" {
+		t.Errorf("Expected second row ID to be row2, got %s", sortedRows[1][0])
+	}
+	if sortedRows[2][0] != "row3" {
+		t.Errorf("Expected third row ID to be row3, got %s", sortedRows[2][0])
+	}
+	if sortedRows[3][0] != "row4" {
+		t.Errorf("Expected fourth row ID to be row4, got %s", sortedRows[3][0])
+	}
+}
+
+func TestRowSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value", "Extra"},
+		{"row1", "Alpha", "100", "Data1"},
+		{"row2", "Bravo", "200", "Data2"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Get the row as an array of strings
+	row := table.RowSorted("row1")
+
+	// Check length
+	if len(row) != 4 {
+		t.Errorf("Expected row to have 4 values, got %d", len(row))
+	}
+
+	// Check values
+	if row[0] != "row1" {
+		t.Errorf("Expected row[0] to be 'row1', got %s", row[0])
+	}
+	if row[1] != "Alpha" {
+		t.Errorf("Expected row[1] to be 'Alpha', got %s", row[1])
+	}
+	if row[2] != "100" {
+		t.Errorf("Expected row[2] to be '100', got %s", row[2])
+	}
+	if row[3] != "Data1" {
+		t.Errorf("Expected row[3] to be 'Data1', got %s", row[3])
+	}
+
+	// Check non-existent row
+	nonExistentRow := table.RowSorted("nonExistent")
+	if nonExistentRow != nil {
+		t.Errorf("Expected nil for non-existent row, got %v", nonExistentRow)
+	}
+}
+
+func TestLookupRowSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value", "Extra"},
+		{"row1", "Alpha", "100", "Data1"},
+		{"row2", "Bravo", "200", "Data2"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Look up an existing row
+	row, found := table.LookupRowSorted("row1")
+	if !found {
+		t.Errorf("Expected to find row1")
+	}
+
+	// Check length
+	if len(row) != 4 {
+		t.Errorf("Expected row to have 4 values, got %d", len(row))
+	}
+
+	// Check values
+	if row[0] != "row1" {
+		t.Errorf("Expected row[0] to be 'row1', got %s", row[0])
+	}
+	if row[1] != "Alpha" {
+		t.Errorf("Expected row[1] to be 'Alpha', got %s", row[1])
+	}
+	if row[2] != "100" {
+		t.Errorf("Expected row[2] to be '100', got %s", row[2])
+	}
+	if row[3] != "Data1" {
+		t.Errorf("Expected row[3] to be 'Data1', got %s", row[3])
+	}
+
+	// Look up a non-existent row
+	row, found = table.LookupRowSorted("nonExistent")
+	if found {
+		t.Errorf("Expected not to find nonExistent row")
+	}
+	if row != nil {
+		t.Errorf("Expected nil row for non-existent row, got %v", row)
+	}
+}
+
+func TestCSVTableSafeAllSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row3", "Charlie", "300"},
+		{"row1", "Alpha", "100"},
+		{"row4", "Delta", "200"},
+		{"row2", "Bravo", "400"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	// Get sorted rows
+	sortedRows := table.AllSorted()
+
+	// Check that rows are in original insertion order
+	if sortedRows[0][0] != "row3" {
+		t.Errorf("Expected first row ID to be row3, got %s", sortedRows[0][0])
+	}
+	if sortedRows[1][0] != "row1" {
+		t.Errorf("Expected second row ID to be row1, got %s", sortedRows[1][0])
+	}
+	if sortedRows[2][0] != "row4" {
+		t.Errorf("Expected third row ID to be row4, got %s", sortedRows[2][0])
+	}
+	if sortedRows[3][0] != "row2" {
+		t.Errorf("Expected fourth row ID to be row2, got %s", sortedRows[3][0])
+	}
+
+	table.Sort("Name", abstract.ASCSort)
+	sortedRows = table.AllSorted()
+
+	if sortedRows[0][0] != "row1" {
+		t.Errorf("Expected first row ID to be row1, got %s", sortedRows[0][0])
+	}
+	if sortedRows[1][0] != "row2" {
+		t.Errorf("Expected second row ID to be row2, got %s", sortedRows[1][0])
+	}
+	if sortedRows[2][0] != "row3" {
+		t.Errorf("Expected third row ID to be row3, got %s", sortedRows[2][0])
+	}
+	if sortedRows[3][0] != "row4" {
+		t.Errorf("Expected fourth row ID to be row4, got %s", sortedRows[3][0])
+	}
+}
+
+func TestCSVTableSafeRowSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Alpha", "100"},
+		{"row2", "Bravo", "200"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	// Get the row as an array of strings
+	row := table.RowSorted("row1")
+
+	// Check length and values
+	if len(row) != 3 {
+		t.Errorf("Expected row to have 3 values, got %d", len(row))
+	}
+	if row[0] != "row1" {
+		t.Errorf("Expected row[0] to be 'row1', got %s", row[0])
+	}
+	if row[1] != "Alpha" {
+		t.Errorf("Expected row[1] to be 'Alpha', got %s", row[1])
+	}
+	if row[2] != "100" {
+		t.Errorf("Expected row[2] to be '100', got %s", row[2])
+	}
+}
+
+func TestCSVTableSafeLookupRowSorted(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Alpha", "100"},
+		{"row2", "Bravo", "200"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	// Look up an existing row
+	row, found := table.LookupRowSorted("row1")
+	if !found {
+		t.Errorf("Expected to find row1")
+	}
+
+	// Check length and values
+	if len(row) != 3 {
+		t.Errorf("Expected row to have 3 values, got %d", len(row))
+	}
+	if row[0] != "row1" {
+		t.Errorf("Expected row[0] to be 'row1', got %s", row[0])
+	}
+	if row[1] != "Alpha" {
+		t.Errorf("Expected row[1] to be 'Alpha', got %s", row[1])
+	}
+	if row[2] != "100" {
+		t.Errorf("Expected row[2] to be '100', got %s", row[2])
+	}
+
+	// Look up a non-existent row
+	row, found = table.LookupRowSorted("nonExistent")
+	if found {
+		t.Errorf("Expected not to find nonExistent row")
+	}
+	if row != nil {
+		t.Errorf("Expected nil row for non-existent row, got %v", row)
+	}
+}
+
 func TestSort(t *testing.T) {
 	records := [][]string{
 		{"ID", "Name", "Value"},
