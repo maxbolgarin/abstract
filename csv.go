@@ -351,7 +351,7 @@ func (t *CSVTable) Bytes() []byte {
 			if i > 0 {
 				buf.WriteString(",")
 			}
-			buf.WriteString("\"" + value + "\"")
+			buf.WriteString("\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\"")
 		}
 		buf.WriteString("\n")
 	}
