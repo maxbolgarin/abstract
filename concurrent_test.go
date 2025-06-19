@@ -120,14 +120,14 @@ func TestStartUpdaterWithShutdownChanCtxCancel(t *testing.T) {
 	defer cancel()
 
 	var count atomic.Int64
-	interval := 20 * time.Millisecond
+	interval := 80 * time.Millisecond
 	ch := make(chan struct{})
 	f := func() {
 		count.Add(1)
 	}
 
 	go func() {
-		time.Sleep(30 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		cancel()
 	}()
 
