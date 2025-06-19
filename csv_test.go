@@ -1123,3 +1123,495 @@ func TestCSVTableSafeSort(t *testing.T) {
 		t.Errorf("Expected Value for row2 to be 400, got %s", val["Value"])
 	}
 }
+
+// Tests for new methods
+
+func TestNewCSVTableFromMap(t *testing.T) {
+	data := map[string]map[string]string{
+		"user1": {
+			"name":  "Alice",
+			"email": "alice@example.com",
+			"age":   "25",
+		},
+		"user2": {
+			"name":  "Bob",
+			"email": "bob@example.com",
+			"age":   "30",
+		},
+		"user3": {
+			"name":  "Charlie",
+			"email": "charlie@example.com",
+		},
+	}
+
+	table := abstract.NewCSVTableFromMap(data)
+
+	// Check that all users exist
+	if !table.Has("user1") {
+		t.Errorf("Expected table to have user1")
+	}
+	if !table.Has("user2") {
+		t.Errorf("Expected table to have user2")
+	}
+	if !table.Has("user3") {
+		t.Errorf("Expected table to have user3")
+	}
+
+	// Check values
+	if got := table.Value("user1", "name"); got != "Alice" {
+		t.Errorf("Expected user1 name = Alice, got %s", got)
+	}
+	if got := table.Value("user2", "age"); got != "30" {
+		t.Errorf("Expected user2 age = 30, got %s", got)
+	}
+	if got := table.Value("user3", "age"); got != "" {
+		t.Errorf("Expected user3 age = empty, got %s", got)
+	}
+
+	// Check headers include id and all columns
+	headers := table.Headers()
+	if len(headers) != 4 { // id, age, email, name (sorted)
+		t.Errorf("Expected 4 headers, got %d", len(headers))
+	}
+	if headers[0] != "id" {
+		t.Errorf("Expected first header to be 'id', got %s", headers[0])
+	}
+}
+
+func TestNewCSVTableFromMapWithCustomID(t *testing.T) {
+	data := map[string]map[string]string{
+		"user1": {
+			"name":  "Alice",
+			"email": "alice@example.com",
+		},
+	}
+
+	table := abstract.NewCSVTableFromMap(data, "user_id")
+
+	headers := table.Headers()
+	if headers[0] != "user_id" {
+		t.Errorf("Expected first header to be 'user_id', got %s", headers[0])
+	}
+
+	// Check that the ID value is correctly set
+	row := table.RowSorted("user1")
+	if row[0] != "user1" {
+		t.Errorf("Expected first column value to be 'user1', got %s", row[0])
+	}
+}
+
+func TestNewCSVTableFromMapEmpty(t *testing.T) {
+	data := map[string]map[string]string{}
+	table := abstract.NewCSVTableFromMap(data)
+
+	if len(table.All()) != 0 {
+		t.Errorf("Expected empty table for empty data")
+	}
+	if len(table.Headers()) != 0 {
+		t.Errorf("Expected no headers for empty data")
+	}
+}
+
+func TestDeleteColumn(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value", "Extra"},
+		{"row1", "Test1", "100", "Data1"},
+		{"row2", "Test2", "200", "Data2"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Delete single column
+	table.DeleteColumn("Value")
+
+	headers := table.Headers()
+	if len(headers) != 3 {
+		t.Errorf("Expected 3 headers after deleting one column, got %d", len(headers))
+	}
+
+	// Check that Value column is gone
+	for _, h := range headers {
+		if h == "Value" {
+			t.Errorf("Expected Value column to be deleted")
+		}
+	}
+
+	// Check that data is preserved for remaining columns
+	if got := table.Value("row1", "Name"); got != "Test1" {
+		t.Errorf("Expected Name to be preserved, got %s", got)
+	}
+	if got := table.Value("row1", "Value"); got != "" {
+		t.Errorf("Expected Value to be empty after deletion, got %s", got)
+	}
+}
+
+func TestDeleteRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+		{"row3", "Test3", "300"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Delete middle row
+	deleted := table.DeleteRow("row2")
+	if !deleted {
+		t.Errorf("Expected DeleteRow to return true for existing row")
+	}
+
+	// Check that row is gone
+	if table.Has("row2") {
+		t.Errorf("Expected row2 to be deleted")
+	}
+
+	// Check that other rows still exist
+	if !table.Has("row1") {
+		t.Errorf("Expected row1 to still exist")
+	}
+	if !table.Has("row3") {
+		t.Errorf("Expected row3 to still exist")
+	}
+
+	// Check that indices are updated correctly
+	ids := table.AllIDs()
+	if len(ids) != 2 {
+		t.Errorf("Expected 2 IDs after deletion, got %d", len(ids))
+	}
+
+	// Try to delete non-existent row
+	deleted = table.DeleteRow("nonexistent")
+	if deleted {
+		t.Errorf("Expected DeleteRow to return false for non-existent row")
+	}
+}
+
+func TestUpdateColumn(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+		{"row3", "Test3", "300"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Update existing column
+	newValues := []string{"NewVal1", "NewVal2", "NewVal3"}
+	table.UpdateColumn("Value", newValues)
+
+	if got := table.Value("row1", "Value"); got != "NewVal1" {
+		t.Errorf("Expected updated value NewVal1, got %s", got)
+	}
+	if got := table.Value("row2", "Value"); got != "NewVal2" {
+		t.Errorf("Expected updated value NewVal2, got %s", got)
+	}
+	if got := table.Value("row3", "Value"); got != "NewVal3" {
+		t.Errorf("Expected updated value NewVal3, got %s", got)
+	}
+
+	// Update with fewer values than rows
+	shortValues := []string{"Short1"}
+	table.UpdateColumn("Name", shortValues)
+
+	if got := table.Value("row1", "Name"); got != "Short1" {
+		t.Errorf("Expected updated name Short1, got %s", got)
+	}
+	if got := table.Value("row2", "Name"); got != "Test2" {
+		t.Errorf("Expected unchanged name Test2, got %s", got)
+	}
+
+	// Try to update non-existent column
+	table.UpdateColumn("NonExistent", []string{"test"})
+	// Should not crash or affect anything
+}
+
+func TestUpdateRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Update existing row
+	updates := map[string]string{
+		"Name":  "UpdatedName",
+		"Value": "UpdatedValue",
+	}
+	updated := table.UpdateRow("row1", updates)
+	if !updated {
+		t.Errorf("Expected UpdateRow to return true for existing row")
+	}
+
+	if got := table.Value("row1", "Name"); got != "UpdatedName" {
+		t.Errorf("Expected updated name UpdatedName, got %s", got)
+	}
+	if got := table.Value("row1", "Value"); got != "UpdatedValue" {
+		t.Errorf("Expected updated value UpdatedValue, got %s", got)
+	}
+
+	// Partial update
+	partialUpdates := map[string]string{
+		"Value": "PartialUpdate",
+	}
+	table.UpdateRow("row2", partialUpdates)
+
+	if got := table.Value("row2", "Name"); got != "Test2" {
+		t.Errorf("Expected unchanged name Test2, got %s", got)
+	}
+	if got := table.Value("row2", "Value"); got != "PartialUpdate" {
+		t.Errorf("Expected updated value PartialUpdate, got %s", got)
+	}
+
+	// Try to update non-existent row
+	updated = table.UpdateRow("nonexistent", updates)
+	if updated {
+		t.Errorf("Expected UpdateRow to return false for non-existent row")
+	}
+}
+
+func TestFindRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Age", "City"},
+		{"user1", "Alice Smith", "25", "New York"},
+		{"user2", "Bob Johnson", "30", "Los Angeles"},
+		{"user3", "Charlie Brown", "25", "New York"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Find by single criterion (using contains)
+	id, row := table.FindRow(map[string]string{"Age": "25"})
+	if id == "" {
+		t.Errorf("Expected to find a row with Age=25")
+	}
+	if row["Name"] != "Alice Smith" && row["Name"] != "Charlie Brown" {
+		t.Errorf("Expected to find Alice Smith or Charlie Brown, got %s", row["Name"])
+	}
+
+	// Find by multiple criteria
+	id, row = table.FindRow(map[string]string{"Age": "25", "City": "New York"})
+	if id == "" {
+		t.Errorf("Expected to find a row with Age=25 and City=New York")
+	}
+	// Should find either user1 or user3, both match
+
+	// Find with partial match (contains)
+	id, row = table.FindRow(map[string]string{"Name": "Alice"})
+	if id != "user1" {
+		t.Errorf("Expected to find user1, got %s", id)
+	}
+	if row["Name"] != "Alice Smith" {
+		t.Errorf("Expected to find Alice Smith, got %s", row["Name"])
+	}
+
+	// Find non-existent
+	id, row = table.FindRow(map[string]string{"Age": "99"})
+	if id != "" {
+		t.Errorf("Expected empty ID for non-existent criteria, got %s", id)
+	}
+	if row != nil {
+		t.Errorf("Expected nil row for non-existent criteria, got %v", row)
+	}
+}
+
+func TestFind(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Age", "City"},
+		{"user1", "Alice Smith", "25", "New York"},
+		{"user2", "Bob Johnson", "30", "Los Angeles"},
+		{"user3", "Charlie Brown", "25", "New York"},
+		{"user4", "David Wilson", "25", "Chicago"},
+	}
+
+	table := abstract.NewCSVTable(records)
+
+	// Find all with Age=25
+	results := table.Find(map[string]string{"Age": "25"})
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results for Age=25, got %d", len(results))
+	}
+
+	// Check that all returned rows have Age=25
+	for id, row := range results {
+		if row["Age"] != "25" {
+			t.Errorf("Expected Age=25 for %s, got %s", id, row["Age"])
+		}
+	}
+
+	// Find all with multiple criteria
+	results = table.Find(map[string]string{"Age": "25", "City": "New York"})
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results for Age=25 and City=New York, got %d", len(results))
+	}
+
+	// Find with partial match
+	results = table.Find(map[string]string{"Name": "Johnson"})
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for Name containing Johnson, got %d", len(results))
+	}
+	if _, exists := results["user2"]; !exists {
+		t.Errorf("Expected to find user2 in results")
+	}
+
+	// Find non-existent
+	results = table.Find(map[string]string{"Age": "99"})
+	if len(results) != 0 {
+		t.Errorf("Expected 0 results for non-existent criteria, got %d", len(results))
+	}
+}
+
+// Tests for CSVTableSafe new methods
+
+func TestNewCSVTableSafeFromMap(t *testing.T) {
+	data := map[string]map[string]string{
+		"user1": {
+			"name":  "Alice",
+			"email": "alice@example.com",
+		},
+	}
+
+	table := abstract.NewCSVTableSafeFromMap(data)
+
+	if !table.Has("user1") {
+		t.Errorf("Expected table to have user1")
+	}
+	if got := table.Value("user1", "name"); got != "Alice" {
+		t.Errorf("Expected user1 name = Alice, got %s", got)
+	}
+}
+
+func TestCSVTableSafeDeleteColumn(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+	table.DeleteColumn("Value")
+
+	headers := table.Headers()
+	for _, h := range headers {
+		if h == "Value" {
+			t.Errorf("Expected Value column to be deleted")
+		}
+	}
+}
+
+func TestCSVTableSafeDeleteRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	deleted := table.DeleteRow("row1")
+	if !deleted {
+		t.Errorf("Expected DeleteRow to return true")
+	}
+	if table.Has("row1") {
+		t.Errorf("Expected row1 to be deleted")
+	}
+	if !table.Has("row2") {
+		t.Errorf("Expected row2 to still exist")
+	}
+}
+
+func TestCSVTableSafeUpdateColumn(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+		{"row2", "Test2", "200"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	newValues := []string{"NewVal1", "NewVal2"}
+	table.UpdateColumn("Value", newValues)
+
+	if got := table.Value("row1", "Value"); got != "NewVal1" {
+		t.Errorf("Expected updated value NewVal1, got %s", got)
+	}
+	if got := table.Value("row2", "Value"); got != "NewVal2" {
+		t.Errorf("Expected updated value NewVal2, got %s", got)
+	}
+}
+
+func TestCSVTableSafeUpdateRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Value"},
+		{"row1", "Test1", "100"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	updates := map[string]string{
+		"Name":  "UpdatedName",
+		"Value": "UpdatedValue",
+	}
+	updated := table.UpdateRow("row1", updates)
+	if !updated {
+		t.Errorf("Expected UpdateRow to return true")
+	}
+
+	if got := table.Value("row1", "Name"); got != "UpdatedName" {
+		t.Errorf("Expected updated name UpdatedName, got %s", got)
+	}
+}
+
+func TestCSVTableSafeFindRow(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Age"},
+		{"user1", "Alice Smith", "25"},
+		{"user2", "Bob Johnson", "30"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	id, row := table.FindRow(map[string]string{"Age": "25"})
+	if id != "user1" {
+		t.Errorf("Expected to find user1, got %s", id)
+	}
+	if row["Name"] != "Alice Smith" {
+		t.Errorf("Expected to find Alice Smith, got %s", row["Name"])
+	}
+
+	// Test thread safety by ensuring returned map is a copy
+	row["Name"] = "Modified"
+	if got := table.Value("user1", "Name"); got != "Alice Smith" {
+		t.Errorf("Expected original data to be unchanged, got %s", got)
+	}
+}
+
+func TestCSVTableSafeFind(t *testing.T) {
+	records := [][]string{
+		{"ID", "Name", "Age"},
+		{"user1", "Alice Smith", "25"},
+		{"user2", "Bob Johnson", "25"},
+		{"user3", "Charlie Brown", "30"},
+	}
+
+	table := abstract.NewCSVTableSafe(records)
+
+	results := table.Find(map[string]string{"Age": "25"})
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results for Age=25, got %d", len(results))
+	}
+
+	// Test thread safety by ensuring returned maps are copies
+	for _, row := range results {
+		row["Name"] = "Modified"
+	}
+
+	if got := table.Value("user1", "Name"); got != "Alice Smith" {
+		t.Errorf("Expected original data to be unchanged, got %s", got)
+	}
+	if got := table.Value("user2", "Name"); got != "Bob Johnson" {
+		t.Errorf("Expected original data to be unchanged, got %s", got)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -46,6 +47,81 @@ func NewCSVTableFromReader(reader io.Reader) (*CSVTable, error) {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 	return NewCSVTable(records), nil
+}
+
+// NewCSVTableFromMap creates a new CSVTable from a map structure.
+// The outer map keys become row IDs, and the inner map keys become column headers.
+// An ID column is automatically added as the first column.
+// If idColumnName is provided, it will be used as the ID column name.
+func NewCSVTableFromMap(data map[string]map[string]string, idColumnName ...string) *CSVTable {
+	if len(data) == 0 {
+		return &CSVTable{
+			ids:         make([]string, 0),
+			idIndex:     make(map[string]int),
+			headerIndex: make(map[string]int),
+			rows:        make([][]string, 0),
+		}
+	}
+
+	// Collect all unique column names
+	columnSet := make(map[string]bool)
+	for _, row := range data {
+		for col := range row {
+			columnSet[col] = true
+		}
+	}
+
+	// Create headers slice with ID as first column
+	headers := make([]string, 1, len(columnSet)+1)
+	if len(idColumnName) > 0 {
+		headers[0] = idColumnName[0]
+	} else {
+		headers[0] = "id"
+	}
+	for col := range columnSet {
+		headers = append(headers, col)
+	}
+	sort.Strings(headers[1:]) // Sort non-ID columns for consistency
+
+	table := &CSVTable{
+		ids:         make([]string, 0, len(data)),
+		idIndex:     make(map[string]int, len(data)),
+		headers:     headers,
+		headerIndex: make(map[string]int, len(headers)),
+		rows:        make([][]string, 0, len(data)),
+	}
+
+	// Build header index
+	for i, header := range headers {
+		table.headerIndex[header] = i
+	}
+
+	// Sort IDs for consistent ordering
+	ids := make([]string, 0, len(data))
+	for id := range data {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	// Process each row
+	for i, id := range ids {
+		row := make([]string, len(headers))
+		row[0] = id // Set ID as first column
+
+		// Fill in values from the map
+		rowData := data[id]
+		for j := 1; j < len(headers); j++ {
+			if value, exists := rowData[headers[j]]; exists {
+				row[j] = value
+			}
+		}
+
+		table.ids = append(table.ids, id)
+		table.idIndex[id] = i
+		table.rows = append(table.rows, row)
+	}
+
+	return table
 }
 
 // NewCSVTable creates a new CSVTable from the given records.
@@ -131,6 +207,25 @@ func (t *CSVTable) AddRow(id string, row map[string]string) {
 	}
 }
 
+// UpdateRow updates an existing row with the given ID and data.
+// Only updates the columns that are provided in the row map.
+// Returns true if the row was found and updated, false otherwise.
+func (t *CSVTable) UpdateRow(id string, row map[string]string) bool {
+	rowIndex, exists := t.idIndex[id]
+	if !exists {
+		return false
+	}
+
+	// Update only the provided columns
+	for colName, value := range row {
+		if colIndex, exists := t.headerIndex[colName]; exists && colIndex < len(t.rows[rowIndex]) {
+			t.rows[rowIndex][colIndex] = value
+		}
+	}
+
+	return true
+}
+
 // AppendColumn adds a new column to the table with the given name and values.
 // Values are assigned to rows in order. If there are more rows than values,
 // the remaining rows will not have a value for this column.
@@ -148,6 +243,23 @@ func (t *CSVTable) AppendColumn(column string, values []string) {
 	// Assign values to rows in order
 	for i := 0; i < len(t.rows) && i < len(values); i++ {
 		t.rows[i][colIndex] = values[i]
+	}
+}
+
+// UpdateColumn updates all values in the specified column.
+// Values are assigned to rows in order. If there are more rows than values,
+// the remaining rows will keep their existing values.
+func (t *CSVTable) UpdateColumn(column string, values []string) {
+	colIndex, exists := t.headerIndex[column]
+	if !exists {
+		return
+	}
+
+	// Update values in the specified column
+	for i := 0; i < len(t.rows) && i < len(values); i++ {
+		if colIndex < len(t.rows[i]) {
+			t.rows[i][colIndex] = values[i]
+		}
 	}
 }
 
@@ -332,6 +444,66 @@ func (t *CSVTable) Has(slug string) bool {
 	return ok
 }
 
+// FindRow finds the first row that matches the given criteria.
+// The criteria is a map of column names to values that must match.
+// Returns the row ID and data if found, empty string and nil if not found.
+func (t *CSVTable) FindRow(criteria map[string]string) (string, map[string]string) {
+	for i, rowData := range t.rows {
+		match := true
+
+		// Check if all criteria match for this row
+		for colName, expectedValue := range criteria {
+			colIndex, exists := t.headerIndex[colName]
+			if !exists || colIndex >= len(rowData) || !strings.Contains(rowData[colIndex], expectedValue) {
+				match = false
+				break
+			}
+		}
+
+		if match {
+			// Build result map (excluding ID column)
+			result := make(map[string]string, len(t.headers)-1)
+			for j := 1; j < len(t.headers) && j < len(rowData); j++ {
+				result[t.headers[j]] = rowData[j]
+			}
+			return t.ids[i], result
+		}
+	}
+
+	return "", nil
+}
+
+// Find finds all rows that match the given criteria.
+// The criteria is a map of column names to values that must match.
+// Returns a map of row IDs to row data for all matching rows.
+func (t *CSVTable) Find(criteria map[string]string) map[string]map[string]string {
+	result := make(map[string]map[string]string)
+
+	for i, rowData := range t.rows {
+		match := true
+
+		// Check if all criteria match for this row
+		for colName, expectedValue := range criteria {
+			colIndex, exists := t.headerIndex[colName]
+			if !exists || colIndex >= len(rowData) || !strings.Contains(rowData[colIndex], expectedValue) {
+				match = false
+				break
+			}
+		}
+
+		if match {
+			// Build result map (excluding ID column)
+			rowMap := make(map[string]string, len(t.headers)-1)
+			for j := 1; j < len(t.headers) && j < len(rowData); j++ {
+				rowMap[t.headers[j]] = rowData[j]
+			}
+			result[t.ids[i]] = rowMap
+		}
+	}
+
+	return result
+}
+
 // Bytes returns the table as a CSV-formatted byte slice.
 func (t *CSVTable) Bytes() []byte {
 	var buf strings.Builder
@@ -357,6 +529,37 @@ func (t *CSVTable) Bytes() []byte {
 	}
 
 	return []byte(buf.String())
+}
+
+// DeleteColumn removes the specified column from the table.
+// This affects both the headers and the data in each row.
+func (t *CSVTable) DeleteColumn(column string) {
+	t.DeleteColumns(column)
+}
+
+// DeleteRow removes the row with the specified ID from the table.
+// Returns true if the row was found and deleted, false otherwise.
+func (t *CSVTable) DeleteRow(id string) bool {
+	rowIndex, exists := t.idIndex[id]
+	if !exists {
+		return false
+	}
+
+	// Remove from ids slice
+	t.ids = slices.Delete(t.ids, rowIndex, rowIndex+1)
+
+	// Remove from rows slice
+	t.rows = slices.Delete(t.rows, rowIndex, rowIndex+1)
+
+	// Remove from idIndex
+	delete(t.idIndex, id)
+
+	// Update indices for all rows after the deleted one
+	for i := rowIndex; i < len(t.ids); i++ {
+		t.idIndex[t.ids[i]] = i
+	}
+
+	return true
 }
 
 // DeleteColumns removes the specified columns from the table.
@@ -476,6 +679,13 @@ func NewCSVTableSafe(records [][]string) *CSVTableSafe {
 	}
 }
 
+// NewCSVTableSafeFromMap creates a new thread-safe CSVTable from a map structure.
+func NewCSVTableSafeFromMap(data map[string]map[string]string, idColumnName ...string) *CSVTableSafe {
+	return &CSVTableSafe{
+		table: NewCSVTableFromMap(data, idColumnName...),
+	}
+}
+
 // AddRow adds a new row to the table in a thread-safe manner.
 func (t *CSVTableSafe) AddRow(id string, row map[string]string) {
 	t.mu.Lock()
@@ -562,11 +772,53 @@ func (t *CSVTableSafe) Bytes() []byte {
 	return t.table.Bytes()
 }
 
+// DeleteColumn removes the specified column from the table.
+func (t *CSVTableSafe) DeleteColumn(column string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.table.DeleteColumn(column)
+}
+
 // DeleteColumns removes the specified columns from the table.
 func (t *CSVTableSafe) DeleteColumns(columns ...string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.table.DeleteColumns(columns...)
+}
+
+// DeleteRow removes the row with the specified ID from the table.
+func (t *CSVTableSafe) DeleteRow(id string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.table.DeleteRow(id)
+}
+
+// UpdateColumn updates all values in the specified column.
+func (t *CSVTableSafe) UpdateColumn(column string, values []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.table.UpdateColumn(column, values)
+}
+
+// UpdateRow updates an existing row with the given ID and data.
+func (t *CSVTableSafe) UpdateRow(id string, row map[string]string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.table.UpdateRow(id, row)
+}
+
+// FindRow finds the first row that matches the given criteria.
+func (t *CSVTableSafe) FindRow(criteria map[string]string) (string, map[string]string) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.table.FindRow(criteria)
+}
+
+// Find finds all rows that match the given criteria.
+func (t *CSVTableSafe) Find(criteria map[string]string) map[string]map[string]string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.table.Find(criteria)
 }
 
 // Sort reorders the table rows in a thread-safe manner based on the values in the specified column.
