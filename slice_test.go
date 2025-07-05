@@ -179,6 +179,14 @@ func TestChangeSlice(t *testing.T) {
 	}
 }
 
+func TestSlice_Raw(t *testing.T) {
+	slice := abstract.NewSliceFromItems(1, 2, 3)
+	raw := slice.Raw()
+	if len(raw) != 3 {
+		t.Errorf("expected length 3, got %d", len(raw))
+	}
+}
+
 // TestSafeSlice tests all methods for the SafeSlice type with concurrency.
 func TestSafeSlice(t *testing.T) {
 	var wg sync.WaitGroup
@@ -332,5 +340,13 @@ func TestChangeSafeSlice(t *testing.T) {
 	slice.Change(1, func(x int) int { return x * 2 })
 	if slice.Get(1) != 4 {
 		t.Errorf("expected transformed element 4, got %d", slice.Get(1))
+	}
+}
+
+func TestSafeSlice_Raw(t *testing.T) {
+	slice := abstract.NewSafeSliceFromItems(1, 2, 3)
+	raw := slice.Raw()
+	if len(raw) != 3 {
+		t.Errorf("expected length 3, got %d", len(raw))
 	}
 }
