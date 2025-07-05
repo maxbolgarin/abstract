@@ -1191,3 +1191,766 @@ func TestSafeOrderedPairs_RandKey(t *testing.T) {
 		t.Errorf("Expected zero value for empty pair map, got %v", randomKey)
 	}
 }
+
+// Tests for MapOfMaps[K1, K2, V]
+
+func TestMapOfMaps_NewMapOfMaps(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	if m.Len() != 0 {
+		t.Errorf("Expected map length to be 0, got %d", m.Len())
+	}
+	if m.OuterLen() != 0 {
+		t.Errorf("Expected outer map length to be 0, got %d", m.OuterLen())
+	}
+	if !m.IsEmpty() {
+		t.Error("Expected map to be empty")
+	}
+}
+
+func TestMapOfMaps_NewMapOfMapsWithSize(t *testing.T) {
+	m := abstract.NewMapOfMapsWithSize[string, int, float64](10)
+	if m.Len() != 0 {
+		t.Errorf("Expected map length to be 0, got %d", m.Len())
+	}
+}
+
+func TestMapOfMaps_NewMapOfMapsFromExisting(t *testing.T) {
+	existing := map[string]map[int]float64{
+		"group1": {1: 1.1, 2: 2.2},
+		"group2": {3: 3.3, 4: 4.4},
+	}
+	m := abstract.NewMapOfMaps(existing)
+
+	if m.Len() != 4 {
+		t.Errorf("Expected total length to be 4, got %d", m.Len())
+	}
+	if m.OuterLen() != 2 {
+		t.Errorf("Expected outer length to be 2, got %d", m.OuterLen())
+	}
+}
+
+func TestMapOfMaps_SetAndGet(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+
+	// Test setting and getting values
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	if val := m.Get("users", 1); val != 10.5 {
+		t.Errorf("Expected value 10.5, got %f", val)
+	}
+
+	if val := m.Get("users", 2); val != 20.7 {
+		t.Errorf("Expected value 20.7, got %f", val)
+	}
+
+	if val := m.Get("products", 100); val != 99.99 {
+		t.Errorf("Expected value 99.99, got %f", val)
+	}
+
+	// Test getting non-existent values
+	if val := m.Get("nonexistent", 1); val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+}
+
+func TestMapOfMaps_Lookup(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+
+	// Test existing value
+	val, ok := m.Lookup("users", 1)
+	if !ok || val != 10.5 {
+		t.Errorf("Expected value 10.5 and ok=true, got %f and ok=%v", val, ok)
+	}
+
+	// Test non-existent outer key
+	val, ok = m.Lookup("nonexistent", 1)
+	if ok || val != 0.0 {
+		t.Errorf("Expected default value 0.0 and ok=false, got %f and ok=%v", val, ok)
+	}
+
+	// Test non-existent inner key
+	val, ok = m.Lookup("users", 999)
+	if ok || val != 0.0 {
+		t.Errorf("Expected default value 0.0 and ok=false, got %f and ok=%v", val, ok)
+	}
+}
+
+func TestMapOfMaps_GetMapAndSetMap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+
+	// Test getting non-existent map
+	innerMap := m.GetMap("nonexistent")
+	if innerMap != nil {
+		t.Error("Expected nil for non-existent map")
+	}
+
+	// Test setting and getting map
+	testMap := map[int]float64{1: 1.1, 2: 2.2}
+	m.SetMap("test", testMap)
+
+	retrieved := m.GetMap("test")
+	if len(retrieved) != 2 {
+		t.Errorf("Expected map length 2, got %d", len(retrieved))
+	}
+
+	if retrieved[1] != 1.1 || retrieved[2] != 2.2 {
+		t.Error("Retrieved map values don't match")
+	}
+
+	// Verify it's a copy (modifying original shouldn't affect stored)
+	testMap[3] = 3.3
+	retrieved2 := m.GetMap("test")
+	if len(retrieved2) != 2 {
+		t.Error("Expected stored map to be unaffected by original modification")
+	}
+}
+
+func TestMapOfMaps_LookupMap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	testMap := map[int]float64{1: 1.1, 2: 2.2}
+	m.SetMap("test", testMap)
+
+	// Test existing map
+	retrieved, ok := m.LookupMap("test")
+	if !ok || len(retrieved) != 2 {
+		t.Errorf("Expected map with length 2 and ok=true, got length %d and ok=%v", len(retrieved), ok)
+	}
+
+	// Test non-existent map
+	retrieved, ok = m.LookupMap("nonexistent")
+	if ok || retrieved != nil {
+		t.Errorf("Expected nil and ok=false, got %v and ok=%v", retrieved, ok)
+	}
+}
+
+func TestMapOfMaps_HasAndHasMap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+
+	// Test Has
+	if !m.Has("users", 1) {
+		t.Error("Expected Has to return true for existing nested key")
+	}
+
+	if m.Has("users", 999) {
+		t.Error("Expected Has to return false for non-existent inner key")
+	}
+
+	if m.Has("nonexistent", 1) {
+		t.Error("Expected Has to return false for non-existent outer key")
+	}
+
+	// Test HasMap
+	if !m.HasMap("users") {
+		t.Error("Expected HasMap to return true for existing outer key")
+	}
+
+	if m.HasMap("nonexistent") {
+		t.Error("Expected HasMap to return false for non-existent outer key")
+	}
+}
+
+func TestMapOfMaps_PopAndPopMap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	// Test Pop
+	val := m.Pop("users", 1)
+	if val != 10.5 {
+		t.Errorf("Expected popped value 10.5, got %f", val)
+	}
+
+	if m.Has("users", 1) {
+		t.Error("Expected key to be removed after pop")
+	}
+
+	if !m.Has("users", 2) {
+		t.Error("Expected other keys in same map to remain")
+	}
+
+	// Test popping non-existent value
+	val = m.Pop("nonexistent", 1)
+	if val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+
+	// Test PopMap
+	poppedMap := m.PopMap("users")
+	if len(poppedMap) != 1 || poppedMap[2] != 20.7 {
+		t.Error("PopMap didn't return correct map")
+	}
+
+	if m.HasMap("users") {
+		t.Error("Expected outer key to be removed after PopMap")
+	}
+
+	if !m.HasMap("products") {
+		t.Error("Expected other outer keys to remain")
+	}
+}
+
+func TestMapOfMaps_SetIfNotPresent(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+
+	// Test setting when key exists
+	val := m.SetIfNotPresent("users", 1, 99.9)
+	if val != 10.5 {
+		t.Errorf("Expected existing value 10.5, got %f", val)
+	}
+
+	if m.Get("users", 1) != 10.5 {
+		t.Error("Expected existing value to be unchanged")
+	}
+
+	// Test setting when key doesn't exist
+	val = m.SetIfNotPresent("users", 2, 20.7)
+	if val != 20.7 {
+		t.Errorf("Expected new value 20.7, got %f", val)
+	}
+
+	if m.Get("users", 2) != 20.7 {
+		t.Error("Expected new value to be set")
+	}
+}
+
+func TestMapOfMaps_Swap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+
+	// Test swapping existing value
+	old := m.Swap("users", 1, 99.9)
+	if old != 10.5 {
+		t.Errorf("Expected old value 10.5, got %f", old)
+	}
+
+	if m.Get("users", 1) != 99.9 {
+		t.Errorf("Expected new value 99.9, got %f", m.Get("users", 1))
+	}
+
+	// Test swapping non-existent value
+	old = m.Swap("users", 2, 20.7)
+	if old != 0.0 {
+		t.Errorf("Expected default old value 0.0, got %f", old)
+	}
+
+	if m.Get("users", 2) != 20.7 {
+		t.Errorf("Expected new value 20.7, got %f", m.Get("users", 2))
+	}
+}
+
+func TestMapOfMaps_DeleteAndDeleteMap(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("users", 3, 30.9)
+	m.Set("products", 100, 99.99)
+
+	// Test Delete single key
+	deleted := m.Delete("users", 1)
+	if !deleted {
+		t.Error("Expected Delete to return true")
+	}
+
+	if m.Has("users", 1) {
+		t.Error("Expected key to be deleted")
+	}
+
+	// Test Delete multiple keys
+	deleted = m.Delete("users", 2, 3)
+	if !deleted {
+		t.Error("Expected Delete to return true for multiple keys")
+	}
+
+	if m.HasMap("users") {
+		t.Error("Expected outer key to be removed when inner map becomes empty")
+	}
+
+	// Test Delete non-existent key
+	deleted = m.Delete("nonexistent", 1)
+	if deleted {
+		t.Error("Expected Delete to return false for non-existent key")
+	}
+
+	// Test DeleteMap
+	deleted = m.DeleteMap("products")
+	if !deleted {
+		t.Error("Expected DeleteMap to return true")
+	}
+
+	if m.HasMap("products") {
+		t.Error("Expected outer key to be deleted")
+	}
+}
+
+func TestMapOfMaps_LenAndOuterLen(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+
+	if m.Len() != 0 || m.OuterLen() != 0 {
+		t.Error("Expected empty map to have zero lengths")
+	}
+
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	if m.Len() != 3 {
+		t.Errorf("Expected total length 3, got %d", m.Len())
+	}
+
+	if m.OuterLen() != 2 {
+		t.Errorf("Expected outer length 2, got %d", m.OuterLen())
+	}
+}
+
+func TestMapOfMaps_KeysAndValues(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	// Test OuterKeys
+	outerKeys := m.OuterKeys()
+	if len(outerKeys) != 2 {
+		t.Errorf("Expected 2 outer keys, got %d", len(outerKeys))
+	}
+
+	expectedOuter := map[string]bool{"users": true, "products": true}
+	for _, key := range outerKeys {
+		if !expectedOuter[key] {
+			t.Errorf("Unexpected outer key: %s", key)
+		}
+	}
+
+	// Test AllKeys
+	allKeys := m.AllKeys()
+	if len(allKeys) != 3 {
+		t.Errorf("Expected 3 inner keys, got %d", len(allKeys))
+	}
+
+	expectedInner := map[int]bool{1: true, 2: true, 100: true}
+	for _, key := range allKeys {
+		if !expectedInner[key] {
+			t.Errorf("Unexpected inner key: %d", key)
+		}
+	}
+
+	// Test AllValues
+	allValues := m.AllValues()
+	if len(allValues) != 3 {
+		t.Errorf("Expected 3 values, got %d", len(allValues))
+	}
+
+	expectedValues := map[float64]bool{10.5: true, 20.7: true, 99.99: true}
+	for _, val := range allValues {
+		if !expectedValues[val] {
+			t.Errorf("Unexpected value: %f", val)
+		}
+	}
+}
+
+func TestMapOfMaps_Change(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+
+	m.Change("users", 1, func(outerKey string, innerKey int, value float64) float64 {
+		return value * 2
+	})
+
+	if val := m.Get("users", 1); val != 21.0 {
+		t.Errorf("Expected changed value 21.0, got %f", val)
+	}
+
+	// Test changing non-existent key
+	m.Change("users", 2, func(outerKey string, innerKey int, value float64) float64 {
+		return value + 100
+	})
+
+	if val := m.Get("users", 2); val != 100.0 {
+		t.Errorf("Expected new value 100.0, got %f", val)
+	}
+}
+
+func TestMapOfMaps_Transform(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	m.Transform(func(outerKey string, innerKey int, value float64) float64 {
+		if outerKey == "users" {
+			return value * 2
+		}
+		return value
+	})
+
+	if val := m.Get("users", 1); val != 21.0 {
+		t.Errorf("Expected transformed value 21.0, got %f", val)
+	}
+
+	if val := m.Get("users", 2); val != 41.4 {
+		t.Errorf("Expected transformed value 41.4, got %f", val)
+	}
+
+	if val := m.Get("products", 100); val != 99.99 {
+		t.Errorf("Expected unchanged value 99.99, got %f", val)
+	}
+}
+
+func TestMapOfMaps_Range(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+	m.Set("products", 100, 99.99)
+
+	visited := make(map[string]map[int]float64)
+	result := m.Range(func(outerKey string, innerKey int, value float64) bool {
+		if visited[outerKey] == nil {
+			visited[outerKey] = make(map[int]float64)
+		}
+		visited[outerKey][innerKey] = value
+		return value < 50.0 // Stop when we hit a value >= 50
+	})
+
+	if result {
+		t.Error("Expected Range to return false when stopped early")
+	}
+
+	if len(visited) == 0 {
+		t.Error("Expected some values to be visited")
+	}
+}
+
+func TestMapOfMaps_CopyAndRaw(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("products", 100, 99.99)
+
+	// Test Copy
+	copied := m.Copy()
+	if len(copied) != 2 {
+		t.Errorf("Expected copied map to have 2 outer keys, got %d", len(copied))
+	}
+
+	// Modify copy and ensure original is unchanged
+	copied["users"][1] = 999.9
+	if m.Get("users", 1) != 10.5 {
+		t.Error("Expected original to be unchanged after modifying copy")
+	}
+
+	// Test Raw
+	raw := m.Raw()
+	if len(raw) != 2 {
+		t.Errorf("Expected raw map to have 2 outer keys, got %d", len(raw))
+	}
+
+	// Modifying raw affects original
+	raw["users"][1] = 888.8
+	if m.Get("users", 1) != 888.8 {
+		t.Error("Expected original to be affected when modifying raw")
+	}
+}
+
+func TestMapOfMaps_ClearAndRefill(t *testing.T) {
+	m := abstract.NewMapOfMaps[string, int, float64]()
+	m.Set("users", 1, 10.5)
+	m.Set("products", 100, 99.99)
+
+	// Test Clear
+	m.Clear()
+	if !m.IsEmpty() {
+		t.Error("Expected map to be empty after Clear")
+	}
+
+	// Test Refill
+	newData := map[string]map[int]float64{
+		"categories": {1: 1.1, 2: 2.2},
+		"items":      {10: 10.1, 20: 20.2},
+	}
+
+	m.Refill(newData)
+	if m.OuterLen() != 2 {
+		t.Errorf("Expected 2 outer keys after refill, got %d", m.OuterLen())
+	}
+
+	if m.Get("categories", 1) != 1.1 {
+		t.Error("Expected refilled data to be accessible")
+	}
+}
+
+// Tests for SafeMapOfMaps[K1, K2, V]
+
+func TestSafeMapOfMaps_BasicOperations(t *testing.T) {
+	m := abstract.NewSafeMapOfMaps[string, int, float64]()
+
+	// Test concurrent Set operations
+	var wg sync.WaitGroup
+	numGoroutines := 50
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			outerKey := "group" + strconv.Itoa(i%5)
+			innerKey := i
+			value := float64(i) * 1.1
+			m.Set(outerKey, innerKey, value)
+		}(i)
+	}
+
+	wg.Wait()
+
+	if m.Len() != numGoroutines {
+		t.Errorf("Expected %d total items, got %d", numGoroutines, m.Len())
+	}
+
+	if m.OuterLen() != 5 {
+		t.Errorf("Expected 5 outer keys, got %d", m.OuterLen())
+	}
+}
+
+func TestSafeMapOfMaps_ConcurrentReadWrite(t *testing.T) {
+	m := abstract.NewSafeMapOfMaps[string, int, float64]()
+
+	// Pre-populate
+	for i := 0; i < 10; i++ {
+		m.Set("test", i, float64(i)*1.1)
+	}
+
+	var wg sync.WaitGroup
+	numReaders := 10
+	numWriters := 5
+
+	// Start readers
+	for i := 0; i < numReaders; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				val := m.Get("test", j%10)
+				if val < 0 {
+					t.Errorf("Unexpected negative value: %f", val)
+				}
+
+				if ok := m.Has("test", j%10); !ok {
+					t.Error("Expected key to exist")
+				}
+			}
+		}(i)
+	}
+
+	// Start writers
+	for i := 0; i < numWriters; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				key := (i*50 + j) % 10
+				m.Set("test", key, float64(i*50+j)*1.1)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestSafeMapOfMaps_AllMethods(t *testing.T) {
+	m := abstract.NewSafeMapOfMapsWithSize[string, int, float64](10)
+
+	// Test all methods work the same as non-safe version
+	m.Set("users", 1, 10.5)
+	m.Set("users", 2, 20.7)
+
+	if val := m.Get("users", 1); val != 10.5 {
+		t.Errorf("Expected 10.5, got %f", val)
+	}
+
+	if val, ok := m.Lookup("users", 1); !ok || val != 10.5 {
+		t.Errorf("Expected 10.5 and true, got %f and %v", val, ok)
+	}
+
+	if !m.Has("users", 1) {
+		t.Error("Expected Has to return true")
+	}
+
+	if !m.HasMap("users") {
+		t.Error("Expected HasMap to return true")
+	}
+
+	userMap := m.GetMap("users")
+	if len(userMap) != 2 {
+		t.Errorf("Expected user map length 2, got %d", len(userMap))
+	}
+
+	if userMap, ok := m.LookupMap("users"); !ok || len(userMap) != 2 {
+		t.Errorf("Expected user map with length 2, got length %d and ok=%v", len(userMap), ok)
+	}
+
+	val := m.Pop("users", 1)
+	if val != 10.5 {
+		t.Errorf("Expected popped value 10.5, got %f", val)
+	}
+
+	testMap := map[int]float64{10: 10.1, 20: 20.2}
+	m.SetMap("products", testMap)
+
+	poppedMap := m.PopMap("products")
+	if len(poppedMap) != 2 {
+		t.Errorf("Expected popped map length 2, got %d", len(poppedMap))
+	}
+
+	old := m.SetIfNotPresent("users", 2, 99.9)
+	if old != 20.7 {
+		t.Errorf("Expected existing value 20.7, got %f", old)
+	}
+
+	old = m.Swap("users", 2, 30.9)
+	if old != 20.7 {
+		t.Errorf("Expected old value 20.7, got %f", old)
+	}
+
+	if deleted := m.Delete("users", 2); !deleted {
+		t.Error("Expected Delete to return true")
+	}
+
+	m.Set("test", 1, 1.1)
+	m.Set("test", 2, 2.2)
+
+	if deleted := m.DeleteMap("test"); !deleted {
+		t.Error("Expected DeleteMap to return true")
+	}
+
+	// Test utility methods
+	m.Set("a", 1, 1.1)
+	m.Set("a", 2, 2.2)
+	m.Set("b", 3, 3.3)
+
+	if m.Len() != 3 {
+		t.Errorf("Expected length 3, got %d", m.Len())
+	}
+
+	if m.OuterLen() != 2 {
+		t.Errorf("Expected outer length 2, got %d", m.OuterLen())
+	}
+
+	if m.IsEmpty() {
+		t.Error("Expected map not to be empty")
+	}
+
+	outerKeys := m.OuterKeys()
+	if len(outerKeys) != 2 {
+		t.Errorf("Expected 2 outer keys, got %d", len(outerKeys))
+	}
+
+	allKeys := m.AllKeys()
+	if len(allKeys) != 3 {
+		t.Errorf("Expected 3 inner keys, got %d", len(allKeys))
+	}
+
+	allValues := m.AllValues()
+	if len(allValues) != 3 {
+		t.Errorf("Expected 3 values, got %d", len(allValues))
+	}
+
+	// Test Change
+	m.Change("a", 1, func(outer string, inner int, val float64) float64 {
+		return val * 2
+	})
+
+	if val := m.Get("a", 1); val != 2.2 {
+		t.Errorf("Expected changed value 2.2, got %f", val)
+	}
+
+	// Test Transform
+	m.Transform(func(outer string, inner int, val float64) float64 {
+		return val + 1.0
+	})
+
+	if val := m.Get("a", 1); val != 3.2 {
+		t.Errorf("Expected transformed value 3.2, got %f", val)
+	}
+
+	// Test Range
+	count := 0
+	result := m.Range(func(outer string, inner int, val float64) bool {
+		count++
+		return count < 2 // Stop after 2 iterations
+	})
+
+	if result || count != 2 {
+		t.Errorf("Expected Range to stop after 2 iterations, got %d and result %v", count, result)
+	}
+
+	// Test Copy
+	copied := m.Copy()
+	if len(copied) != 2 {
+		t.Errorf("Expected copied map to have 2 outer keys, got %d", len(copied))
+	}
+
+	// Test Raw
+	raw := m.Raw()
+	if len(raw) != 2 {
+		t.Errorf("Expected raw map to have 2 outer keys, got %d", len(raw))
+	}
+
+	// Test Clear
+	m.Clear()
+	if !m.IsEmpty() {
+		t.Error("Expected map to be empty after Clear")
+	}
+
+	// Test Refill
+	refillData := map[string]map[int]float64{
+		"new1": {1: 1.1},
+		"new2": {2: 2.2},
+	}
+	m.Refill(refillData)
+
+	if m.OuterLen() != 2 {
+		t.Errorf("Expected 2 outer keys after refill, got %d", m.OuterLen())
+	}
+}
+
+func TestMapOfMaps_DifferentTypes(t *testing.T) {
+	// Test with different type combinations to verify the three type parameters work correctly
+
+	// String -> Int -> String
+	m1 := abstract.NewMapOfMaps[string, int, string]()
+	m1.Set("group1", 1, "value1")
+	m1.Set("group1", 2, "value2")
+
+	if val := m1.Get("group1", 1); val != "value1" {
+		t.Errorf("Expected 'value1', got '%s'", val)
+	}
+
+	// Int -> String -> Bool
+	m2 := abstract.NewMapOfMaps[int, string, bool]()
+	m2.Set(100, "key1", true)
+	m2.Set(100, "key2", false)
+	m2.Set(200, "key1", true)
+
+	if val := m2.Get(100, "key2"); val != false {
+		t.Errorf("Expected false, got %v", val)
+	}
+
+	if m2.OuterLen() != 2 {
+		t.Errorf("Expected 2 outer keys, got %d", m2.OuterLen())
+	}
+
+	// Test that outer and inner key types are truly independent
+	outerKeys := m2.OuterKeys() // Should be []int
+	innerKeys := m2.AllKeys()   // Should be []string
+
+	if len(outerKeys) != 2 {
+		t.Errorf("Expected 2 outer keys (int), got %d", len(outerKeys))
+	}
+
+	if len(innerKeys) != 3 {
+		t.Errorf("Expected 3 inner keys (string), got %d", len(innerKeys))
+	}
+}

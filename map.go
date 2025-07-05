@@ -1191,3 +1191,896 @@ func (s *SafeOrderedPairs[K, V]) RandKey() K {
 
 	return s.OrderedPairs.RandKey()
 }
+
+// MapOfMaps is a nested map structure that maps keys to maps.
+// It provides methods to work both at the outer level and with nested key-value pairs.
+type MapOfMaps[K1 comparable, K2 comparable, V comparable] struct {
+	items map[K1]map[K2]V
+}
+
+// NewMapOfMaps returns a new MapOfMaps with an empty map.
+func NewMapOfMaps[K1 comparable, K2 comparable, V comparable](raw ...map[K1]map[K2]V) *MapOfMaps[K1, K2, V] {
+	out := make(map[K1]map[K2]V, getMapsOfMapsLength(raw...))
+	for _, m := range raw {
+		for k, v := range m {
+			out[k] = lang.CopyMap(v)
+		}
+	}
+	return &MapOfMaps[K1, K2, V]{
+		items: out,
+	}
+}
+
+// NewMapOfMapsWithSize returns a new MapOfMaps with the provided size.
+func NewMapOfMapsWithSize[K1 comparable, K2 comparable, V comparable](size int) *MapOfMaps[K1, K2, V] {
+	return &MapOfMaps[K1, K2, V]{
+		items: make(map[K1]map[K2]V, size),
+	}
+}
+
+// Get returns the value for the provided nested keys or the default type value if not present.
+func (m *MapOfMaps[K1, K2, V]) Get(outerKey K1, innerKey K2) V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		return innerMap[innerKey]
+	}
+	var zero V
+	return zero
+}
+
+// GetMap returns the inner map for the provided outer key or nil if not present.
+func (m *MapOfMaps[K1, K2, V]) GetMap(outerKey K1) map[K2]V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	return m.items[outerKey]
+}
+
+// Lookup returns the value for the provided nested keys and true if present, default value and false otherwise.
+func (m *MapOfMaps[K1, K2, V]) Lookup(outerKey K1, innerKey K2) (V, bool) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		v, exists := innerMap[innerKey]
+		return v, exists
+	}
+	var zero V
+	return zero, false
+}
+
+// LookupMap returns the inner map for the provided outer key and true if present, nil and false otherwise.
+func (m *MapOfMaps[K1, K2, V]) LookupMap(outerKey K1) (map[K2]V, bool) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	innerMap, ok := m.items[outerKey]
+	return innerMap, ok
+}
+
+// Has returns true if the nested keys are present, false otherwise.
+func (m *MapOfMaps[K1, K2, V]) Has(outerKey K1, innerKey K2) bool {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		_, exists := innerMap[innerKey]
+		return exists
+	}
+	return false
+}
+
+// HasMap returns true if the outer key is present, false otherwise.
+func (m *MapOfMaps[K1, K2, V]) HasMap(outerKey K1) bool {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	_, ok := m.items[outerKey]
+	return ok
+}
+
+// Pop returns the value for the provided nested keys and deletes it or default value if not present.
+func (m *MapOfMaps[K1, K2, V]) Pop(outerKey K1, innerKey K2) V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		val, exists := innerMap[innerKey]
+		if exists {
+			delete(innerMap, innerKey)
+			if len(innerMap) == 0 {
+				delete(m.items, outerKey)
+			}
+		}
+		return val
+	}
+	var zero V
+	return zero
+}
+
+// PopMap returns the inner map for the provided outer key and deletes it or nil if not present.
+func (m *MapOfMaps[K1, K2, V]) PopMap(outerKey K1) map[K2]V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	innerMap, ok := m.items[outerKey]
+	if ok {
+		delete(m.items, outerKey)
+	}
+	return innerMap
+}
+
+// Set sets the value for the provided nested keys.
+func (m *MapOfMaps[K1, K2, V]) Set(outerKey K1, innerKey K2, value V) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		innerMap[innerKey] = value
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+	}
+}
+
+// SetMap sets the inner map for the provided outer key.
+func (m *MapOfMaps[K1, K2, V]) SetMap(outerKey K1, innerMap map[K2]V) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	m.items[outerKey] = lang.CopyMap(innerMap)
+}
+
+// SetIfNotPresent sets the value if the nested keys are not present, returns the old value if present, new value otherwise.
+func (m *MapOfMaps[K1, K2, V]) SetIfNotPresent(outerKey K1, innerKey K2, value V) V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		if existingValue, exists := innerMap[innerKey]; exists {
+			return existingValue
+		}
+		innerMap[innerKey] = value
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+	}
+	return value
+}
+
+// Swap swaps the value for the provided nested keys and returns the old value.
+func (m *MapOfMaps[K1, K2, V]) Swap(outerKey K1, innerKey K2, value V) V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		old := innerMap[innerKey]
+		innerMap[innerKey] = value
+		return old
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+		var zero V
+		return zero
+	}
+}
+
+// Delete removes nested keys and returns true if any were deleted.
+func (m *MapOfMaps[K1, K2, V]) Delete(outerKey K1, innerKeys ...K2) bool {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	innerMap, ok := m.items[outerKey]
+	if !ok {
+		return false
+	}
+
+	deleted := false
+	for _, innerKey := range innerKeys {
+		if _, exists := innerMap[innerKey]; exists {
+			delete(innerMap, innerKey)
+			deleted = true
+		}
+	}
+
+	if len(innerMap) == 0 {
+		delete(m.items, outerKey)
+	}
+
+	return deleted
+}
+
+// DeleteMap removes the entire inner map for the provided outer key and returns true if deleted.
+func (m *MapOfMaps[K1, K2, V]) DeleteMap(outerKeys ...K1) bool {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	deleted := false
+	for _, outerKey := range outerKeys {
+		if _, ok := m.items[outerKey]; ok {
+			delete(m.items, outerKey)
+			deleted = true
+		}
+	}
+	return deleted
+}
+
+// Len returns the total number of nested key-value pairs across all inner maps.
+func (m *MapOfMaps[K1, K2, V]) Len() int {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	total := 0
+	for _, innerMap := range m.items {
+		total += len(innerMap)
+	}
+	return total
+}
+
+// OuterLen returns the number of outer keys (inner maps).
+func (m *MapOfMaps[K1, K2, V]) OuterLen() int {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	return len(m.items)
+}
+
+// IsEmpty returns true if there are no nested key-value pairs.
+func (m *MapOfMaps[K1, K2, V]) IsEmpty() bool {
+	return m.Len() == 0
+}
+
+// OuterKeys returns a slice of all outer keys.
+func (m *MapOfMaps[K1, K2, V]) OuterKeys() []K1 {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	return lang.Keys(m.items)
+}
+
+// AllKeys returns a slice of all nested keys across all inner maps.
+func (m *MapOfMaps[K1, K2, V]) AllKeys() []K2 {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	var keys []K2
+	for _, innerMap := range m.items {
+		keys = append(keys, lang.Keys(innerMap)...)
+	}
+	return keys
+}
+
+// AllValues returns a slice of all values across all inner maps.
+func (m *MapOfMaps[K1, K2, V]) AllValues() []V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	var values []V
+	for _, innerMap := range m.items {
+		values = append(values, lang.Values(innerMap)...)
+	}
+	return values
+}
+
+// Change changes the value for the provided nested keys using the provided function.
+func (m *MapOfMaps[K1, K2, V]) Change(outerKey K1, innerKey K2, f func(K1, K2, V) V) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	if innerMap, ok := m.items[outerKey]; ok {
+		innerMap[innerKey] = f(outerKey, innerKey, innerMap[innerKey])
+	} else {
+		var zero V
+		m.items[outerKey] = map[K2]V{innerKey: f(outerKey, innerKey, zero)}
+	}
+}
+
+// Transform transforms all values across all inner maps using the provided function.
+func (m *MapOfMaps[K1, K2, V]) Transform(f func(K1, K2, V) V) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	for outerKey, innerMap := range m.items {
+		for innerKey, value := range innerMap {
+			innerMap[innerKey] = f(outerKey, innerKey, value)
+		}
+	}
+}
+
+// Range calls the provided function for each nested key-value pair.
+func (m *MapOfMaps[K1, K2, V]) Range(f func(K1, K2, V) bool) bool {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	for outerKey, innerMap := range m.items {
+		for innerKey, value := range innerMap {
+			if !f(outerKey, innerKey, value) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Copy returns a deep copy of the nested map structure.
+func (m *MapOfMaps[K1, K2, V]) Copy() map[K1]map[K2]V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	result := make(map[K1]map[K2]V, len(m.items))
+	for outerKey, innerMap := range m.items {
+		result[outerKey] = lang.CopyMap(innerMap)
+	}
+	return result
+}
+
+// Raw returns the underlying nested map structure.
+func (m *MapOfMaps[K1, K2, V]) Raw() map[K1]map[K2]V {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+	return m.items
+}
+
+// Clear creates a new empty nested map structure.
+func (m *MapOfMaps[K1, K2, V]) Clear() {
+	m.items = make(map[K1]map[K2]V)
+}
+
+// Refill creates a new nested map structure with values from the provided one.
+func (m *MapOfMaps[K1, K2, V]) Refill(raw map[K1]map[K2]V) {
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	result := make(map[K1]map[K2]V, len(raw))
+	for outerKey, innerMap := range raw {
+		result[outerKey] = lang.CopyMap(innerMap)
+	}
+	m.items = result
+}
+
+func getMapsOfMapsLength[K1 comparable, K2 comparable, V comparable](maps ...map[K1]map[K2]V) int {
+	length := 0
+	for _, m := range maps {
+		length += len(m)
+	}
+	return length
+}
+
+// SafeMapOfMaps is a thread-safe version of MapOfMaps.
+type SafeMapOfMaps[K1 comparable, K2 comparable, V comparable] struct {
+	items map[K1]map[K2]V
+	mu    sync.RWMutex
+}
+
+// NewSafeMapOfMaps returns a new SafeMapOfMaps with an empty map.
+func NewSafeMapOfMaps[K1 comparable, K2 comparable, V comparable](raw ...map[K1]map[K2]V) *SafeMapOfMaps[K1, K2, V] {
+	out := make(map[K1]map[K2]V, getMapsOfMapsLength(raw...))
+	for _, m := range raw {
+		for k, v := range m {
+			out[k] = lang.CopyMap(v)
+		}
+	}
+	return &SafeMapOfMaps[K1, K2, V]{
+		items: out,
+	}
+}
+
+// NewSafeMapOfMapsWithSize returns a new SafeMapOfMaps with the provided size.
+func NewSafeMapOfMapsWithSize[K1 comparable, K2 comparable, V comparable](size int) *SafeMapOfMaps[K1, K2, V] {
+	return &SafeMapOfMaps[K1, K2, V]{
+		items: make(map[K1]map[K2]V, size),
+	}
+}
+
+// Get returns the value for the provided nested keys or the default type value if not present.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Get(outerKey K1, innerKey K2) V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		return innerMap[innerKey]
+	}
+	var zero V
+	return zero
+}
+
+// GetMap returns the inner map for the provided outer key or nil if not present.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) GetMap(outerKey K1) map[K2]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		return lang.CopyMap(innerMap) // Return a copy for safety
+	}
+	return nil
+}
+
+// Lookup returns the value for the provided nested keys and true if present, default value and false otherwise.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Lookup(outerKey K1, innerKey K2) (V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		v, exists := innerMap[innerKey]
+		return v, exists
+	}
+	var zero V
+	return zero, false
+}
+
+// LookupMap returns the inner map for the provided outer key and true if present, nil and false otherwise.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) LookupMap(outerKey K1) (map[K2]V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		return lang.CopyMap(innerMap), true // Return a copy for safety
+	}
+	return nil, false
+}
+
+// Has returns true if the nested keys are present, false otherwise.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Has(outerKey K1, innerKey K2) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		_, exists := innerMap[innerKey]
+		return exists
+	}
+	return false
+}
+
+// HasMap returns true if the outer key is present, false otherwise.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) HasMap(outerKey K1) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	_, ok := m.items[outerKey]
+	return ok
+}
+
+// Pop returns the value for the provided nested keys and deletes it or default value if not present.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Pop(outerKey K1, innerKey K2) V {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		val, exists := innerMap[innerKey]
+		if exists {
+			delete(innerMap, innerKey)
+			if len(innerMap) == 0 {
+				delete(m.items, outerKey)
+			}
+		}
+		return val
+	}
+	var zero V
+	return zero
+}
+
+// PopMap returns the inner map for the provided outer key and deletes it or nil if not present.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) PopMap(outerKey K1) map[K2]V {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	innerMap, ok := m.items[outerKey]
+	if ok {
+		delete(m.items, outerKey)
+		return lang.CopyMap(innerMap) // Return a copy for safety
+	}
+	return nil
+}
+
+// Set sets the value for the provided nested keys.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Set(outerKey K1, innerKey K2, value V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		innerMap[innerKey] = value
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+	}
+}
+
+// SetMap sets the inner map for the provided outer key.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) SetMap(outerKey K1, innerMap map[K2]V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	m.items[outerKey] = lang.CopyMap(innerMap)
+}
+
+// SetIfNotPresent sets the value if the nested keys are not present, returns the old value if present, new value otherwise.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) SetIfNotPresent(outerKey K1, innerKey K2, value V) V {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		if existingValue, exists := innerMap[innerKey]; exists {
+			return existingValue
+		}
+		innerMap[innerKey] = value
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+	}
+	return value
+}
+
+// Swap swaps the value for the provided nested keys and returns the old value.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Swap(outerKey K1, innerKey K2, value V) V {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		old := innerMap[innerKey]
+		innerMap[innerKey] = value
+		return old
+	} else {
+		m.items[outerKey] = map[K2]V{innerKey: value}
+		var zero V
+		return zero
+	}
+}
+
+// Delete removes nested keys and returns true if any were deleted.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Delete(outerKey K1, innerKeys ...K2) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	innerMap, ok := m.items[outerKey]
+	if !ok {
+		return false
+	}
+
+	deleted := false
+	for _, innerKey := range innerKeys {
+		if _, exists := innerMap[innerKey]; exists {
+			delete(innerMap, innerKey)
+			deleted = true
+		}
+	}
+
+	if len(innerMap) == 0 {
+		delete(m.items, outerKey)
+	}
+
+	return deleted
+}
+
+// DeleteMap removes the entire inner map for the provided outer key and returns true if deleted.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) DeleteMap(outerKeys ...K1) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	deleted := false
+	for _, outerKey := range outerKeys {
+		if _, ok := m.items[outerKey]; ok {
+			delete(m.items, outerKey)
+			deleted = true
+		}
+	}
+	return deleted
+}
+
+// Len returns the total number of nested key-value pairs across all inner maps.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Len() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	total := 0
+	for _, innerMap := range m.items {
+		total += len(innerMap)
+	}
+	return total
+}
+
+// OuterLen returns the number of outer keys (inner maps).
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) OuterLen() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	return len(m.items)
+}
+
+// IsEmpty returns true if there are no nested key-value pairs.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) IsEmpty() bool {
+	return m.Len() == 0
+}
+
+// OuterKeys returns a slice of all outer keys.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) OuterKeys() []K1 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	return lang.Keys(m.items)
+}
+
+// AllKeys returns a slice of all nested keys across all inner maps.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) AllKeys() []K2 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	var keys []K2
+	for _, innerMap := range m.items {
+		keys = append(keys, lang.Keys(innerMap)...)
+	}
+	return keys
+}
+
+// AllValues returns a slice of all values across all inner maps.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) AllValues() []V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	var values []V
+	for _, innerMap := range m.items {
+		values = append(values, lang.Values(innerMap)...)
+	}
+	return values
+}
+
+// Change changes the value for the provided nested keys using the provided function.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Change(outerKey K1, innerKey K2, f func(K1, K2, V) V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	if innerMap, ok := m.items[outerKey]; ok {
+		innerMap[innerKey] = f(outerKey, innerKey, innerMap[innerKey])
+	} else {
+		var zero V
+		m.items[outerKey] = map[K2]V{innerKey: f(outerKey, innerKey, zero)}
+	}
+}
+
+// Transform transforms all values across all inner maps using the provided function.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Transform(f func(K1, K2, V) V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	for outerKey, innerMap := range m.items {
+		for innerKey, value := range innerMap {
+			innerMap[innerKey] = f(outerKey, innerKey, value)
+		}
+	}
+}
+
+// Range calls the provided function for each nested key-value pair.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Range(f func(K1, K2, V) bool) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	for outerKey, innerMap := range m.items {
+		for innerKey, value := range innerMap {
+			if !f(outerKey, innerKey, value) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Copy returns a deep copy of the nested map structure.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Copy() map[K1]map[K2]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	result := make(map[K1]map[K2]V, len(m.items))
+	for outerKey, innerMap := range m.items {
+		result[outerKey] = lang.CopyMap(innerMap)
+	}
+	return result
+}
+
+// Raw returns the underlying nested map structure.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Raw() map[K1]map[K2]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.items == nil {
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.items = make(map[K1]map[K2]V)
+		m.mu.Unlock()
+		m.mu.RLock()
+	}
+
+	return m.items
+}
+
+// Clear creates a new empty nested map structure.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.items = make(map[K1]map[K2]V)
+}
+
+// Refill creates a new nested map structure with values from the provided one.
+// It is safe for concurrent/parallel use.
+func (m *SafeMapOfMaps[K1, K2, V]) Refill(raw map[K1]map[K2]V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.items == nil {
+		m.items = make(map[K1]map[K2]V)
+	}
+
+	result := make(map[K1]map[K2]V, len(raw))
+	for outerKey, innerMap := range raw {
+		result[outerKey] = lang.CopyMap(innerMap)
+	}
+	m.items = result
+}
