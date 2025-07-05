@@ -698,14 +698,21 @@ func (s *EntityMap[K, T]) LookupByName(name string) (T, bool) {
 // Set sets the value for the provided key.
 // It sets last order to the entity's order, so it adds to the end of the list.
 // It sets the same order of existing entity in case of conflict.
+// If the entity is not valid, it returns -1.
 // It returns the order of the entity.
 func (s *EntityMap[K, T]) Set(info T) int {
 	id := info.GetID()
 	old, ok := s.Map.items[id]
 	if ok {
-		info = info.SetOrder(old.GetOrder()).(T)
+		info, ok = info.SetOrder(old.GetOrder()).(T)
+		if !ok {
+			return -1
+		}
 	} else {
-		info = info.SetOrder(len(s.Map.items)).(T)
+		info, ok = info.SetOrder(len(s.Map.items)).(T)
+		if !ok {
+			return -1
+		}
 	}
 	s.Map.items[id] = info
 
@@ -722,17 +729,21 @@ func (s *EntityMap[K, T]) SetManualOrder(info T) int {
 
 // AllOrdered returns all values in order.
 func (s *EntityMap[K, T]) AllOrdered() []T {
+	return allOrdered(s.Map.items)
+}
+
+func allOrdered[K comparable, T Entity[K]](items map[K]T) []T {
 	var (
-		nOfItems   = len(s.Map.items)
+		nOfItems   = len(items)
 		out        = make([]T, nOfItems)
 		seen       = make([]bool, nOfItems)
 		broken     []T
 		seenBroken bool
 	)
 
-	for _, h := range s.Map.items {
+	for _, h := range items {
 		order := h.GetOrder()
-		if order < 0 || order >= nOfItems || seen[order] {
+		if order < 0 || order >= nOfItems {
 			seenBroken = true
 			broken = append(broken, h)
 			continue
@@ -774,8 +785,10 @@ func (s *EntityMap[K, T]) NextOrder() int {
 
 // ChangeOrder changes the order of the values.
 func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
-	ordered := s.AllOrdered()
+	changeOrder(s.Map.items, s.AllOrdered(), draft)
+}
 
+func changeOrder[K comparable, T Entity[K]](items map[K]T, ordered []T, draft map[K]int) {
 	maxOrder := len(draft)
 	for _, item := range ordered {
 		ord, ok := draft[item.GetID()]
@@ -783,32 +796,43 @@ func (s *EntityMap[K, T]) ChangeOrder(draft map[K]int) {
 			ord = maxOrder
 			maxOrder++
 		}
-		s.Map.items[item.GetID()] = item.SetOrder(ord).(T)
+		item, ok = item.SetOrder(ord).(T)
+		if !ok {
+			continue
+		}
+		items[item.GetID()] = item
 	}
 }
 
 // Delete deletes values for the provided keys.
 // It reorders all remaining values.
 func (s *EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
+	return deleteEntity(s.Map.items, allOrdered[K, T], keys...)
+}
+
+func deleteEntity[K comparable, T Entity[K]](items map[K]T, ordered func(map[K]T) []T, keys ...K) (deleted bool) {
 	for _, key := range keys {
-		toDelete, ok := s.Map.items[key]
+		toDelete, ok := items[key]
 		if !ok {
 			continue
 		}
 
 		deleteOrder := toDelete.GetOrder()
-		ordered := s.AllOrdered()
+		ordered := ordered(items)
 
 		for i, h := range ordered {
 			if i == deleteOrder {
-				delete(s.Map.items, key)
+				delete(items, key)
 				deleted = true
 				continue
 			}
 			if i > deleteOrder {
-				h = h.SetOrder(h.GetOrder() - 1).(T)
+				h, ok = h.SetOrder(h.GetOrder() - 1).(T)
+				if !ok {
+					continue
+				}
 			}
-			s.Map.items[h.GetID()] = h
+			items[h.GetID()] = h
 		}
 	}
 	return deleted
@@ -819,30 +843,38 @@ func (s *EntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 // This map MUST be initialized with NewSafeEntityMap or NewSafeEntityMapWithSize.
 // Otherwise, it will panic.
 type SafeEntityMap[K comparable, T Entity[K]] struct {
-	*EntityMap[K, T]
-	mu sync.RWMutex
+	*SafeMap[K, T]
 }
 
 // NewSafeEntityMap returns a new SafeEntityMap from the provided map.
 func NewSafeEntityMap[K comparable, T Entity[K]](raw ...map[K]T) *SafeEntityMap[K, T] {
 	return &SafeEntityMap[K, T]{
-		EntityMap: NewEntityMap(raw...),
+		SafeMap: NewSafeMap(raw...),
 	}
 }
 
 // NewSafeEntityMapWithSize returns a new SafeEntityMap with the provided size.
 func NewSafeEntityMapWithSize[K comparable, T Entity[K]](size int) *SafeEntityMap[K, T] {
 	return &SafeEntityMap[K, T]{
-		EntityMap: NewEntityMapWithSize[K, T](size),
+		SafeMap: NewSafeMapWithSize[K, T](size),
 	}
 }
 
 // LookupByName returns the value for the provided name.
 // It is safe for concurrent/parallel use.
 func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
+	name = strings.ToLower(name)
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.EntityMap.LookupByName(name)
+
+	for _, h := range s.SafeMap.items {
+		if strings.ToLower(h.GetName()) == name {
+			return h, true
+		}
+	}
+	var zero T
+	return zero, false
 }
 
 // Set sets the value for the provided key.
@@ -850,12 +882,29 @@ func (s *SafeEntityMap[K, T]) LookupByName(name string) (T, bool) {
 // It sets last order to the entity's order.
 // It sets the same order of existing entity in case of conflict.
 // It returns the order of the entity.
+// If the entity is not valid, it returns -1.
 // It is safe for concurrent/parallel use.
 func (s *SafeEntityMap[K, T]) Set(info T) int {
+	id := info.GetID()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.EntityMap.Set(info)
+	old, ok := s.SafeMap.items[id]
+	if ok {
+		info, ok = info.SetOrder(old.GetOrder()).(T)
+		if !ok {
+			return -1
+		}
+	} else {
+		info, ok = info.SetOrder(len(s.SafeMap.items)).(T)
+		if !ok {
+			return -1
+		}
+	}
+	s.SafeMap.items[id] = info
+
+	return info.GetOrder()
 }
 
 // SetManualOrder sets the value for the provided key.
@@ -866,7 +915,9 @@ func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.EntityMap.SetManualOrder(info)
+	s.SafeMap.items[info.GetID()] = info
+
+	return info.GetOrder()
 }
 
 // AllOrdered returns all values in the map sorted by their order.
@@ -874,7 +925,8 @@ func (s *SafeEntityMap[K, T]) SetManualOrder(info T) int {
 func (s *SafeEntityMap[K, T]) AllOrdered() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.EntityMap.AllOrdered()
+
+	return allOrdered(s.SafeMap.items)
 }
 
 // NextOrder returns the next order number.
@@ -882,7 +934,8 @@ func (s *SafeEntityMap[K, T]) AllOrdered() []T {
 func (s *SafeEntityMap[K, T]) NextOrder() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.EntityMap.NextOrder()
+
+	return len(s.SafeMap.items)
 }
 
 // ChangeOrder changes the order of the values in the map based on the provided map.
@@ -890,7 +943,10 @@ func (s *SafeEntityMap[K, T]) NextOrder() int {
 func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.EntityMap.ChangeOrder(draft)
+
+	ordered := allOrdered(s.SafeMap.items)
+
+	changeOrder(s.SafeMap.items, ordered, draft)
 }
 
 // Delete deletes values for the provided keys.
@@ -899,7 +955,7 @@ func (s *SafeEntityMap[K, T]) ChangeOrder(draft map[K]int) {
 func (s *SafeEntityMap[K, T]) Delete(keys ...K) (deleted bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.EntityMap.Delete(keys...)
+	return deleteEntity(s.SafeMap.items, allOrdered[K, T], keys...)
 }
 
 // OrderedPairs is a data structure that behaves like a map but remembers
