@@ -212,7 +212,7 @@ func (t Timer) TimeRemaining() time.Duration {
 		return 0
 	}
 
-	remaining := t.deadline.Sub(time.Now())
+	remaining := time.Until(t.deadline)
 	if remaining < 0 {
 		return 0
 	}
