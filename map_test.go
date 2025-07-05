@@ -34,7 +34,7 @@ func TestNewMapFromPairs(t *testing.T) {
 }
 
 func TestGetAndLookup(t *testing.T) {
-	m := abstract.NewMap[string, int](map[string]int{
+	m := abstract.NewMap(map[string]int{
 		"key1": 100,
 	})
 
@@ -300,7 +300,7 @@ func TestNewSafeMapFromPairs(t *testing.T) {
 }
 
 func TestSafeMap_SetAndGet(t *testing.T) {
-	m := abstract.NewSafeMap[string, int](map[string]int{
+	m := abstract.NewSafeMap(map[string]int{
 		"key1": 10,
 	})
 
@@ -1952,5 +1952,1579 @@ func TestMapOfMaps_DifferentTypes(t *testing.T) {
 
 	if len(innerKeys) != 3 {
 		t.Errorf("Expected 3 inner keys (string), got %d", len(innerKeys))
+	}
+}
+
+// Tests for nil values in all map types
+
+func TestMap_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	var m abstract.Map[string, *int]
+
+	// Test setting nil value
+	m.Set("nilkey", nil)
+
+	// Test Get with nil value
+	val := m.Get("nilkey")
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	// Test Lookup with nil value
+	val, ok := m.Lookup("nilkey")
+	if !ok || val != nil {
+		t.Errorf("Expected nil value and true, got %v and %v", val, ok)
+	}
+
+	// Test Has with nil value
+	if !m.Has("nilkey") {
+		t.Error("Expected key with nil value to exist")
+	}
+
+	// Test Pop with nil value
+	val = m.Pop("nilkey")
+	if val != nil {
+		t.Errorf("Expected popped nil value, got %v", val)
+	}
+
+	// Test that key is removed after pop
+	if m.Has("nilkey") {
+		t.Error("Expected key to be removed after pop")
+	}
+
+	// Test SetIfNotPresent with nil
+	m.Set("key1", nil)
+	returnedVal := m.SetIfNotPresent("key1", &[]int{42}[0])
+	if returnedVal != nil {
+		t.Errorf("Expected existing nil value, got %v", returnedVal)
+	}
+
+	// Test Swap with nil
+	newVal := &[]int{100}[0]
+	oldVal := m.Swap("key1", newVal)
+	if oldVal != nil {
+		t.Errorf("Expected old nil value, got %v", oldVal)
+	}
+
+	// Test Change with nil
+	m.Set("key2", nil)
+	m.Change("key2", func(k string, v *int) *int {
+		if v == nil {
+			return &[]int{42}[0]
+		}
+		return v
+	})
+	if val := m.Get("key2"); val == nil || *val != 42 {
+		t.Errorf("Expected changed value 42, got %v", val)
+	}
+
+	// Test Transform with nil values
+	m.Set("key3", nil)
+	m.Set("key4", &[]int{10}[0])
+	m.Transform(func(k string, v *int) *int {
+		if v == nil {
+			return &[]int{0}[0]
+		}
+		return v
+	})
+
+	if val := m.Get("key3"); val == nil || *val != 0 {
+		t.Errorf("Expected transformed nil to 0, got %v", val)
+	}
+
+	// Test Range with nil values
+	m.Set("key5", nil)
+	m.Range(func(k string, v *int) bool {
+		if k == "key5" && v != nil {
+			t.Errorf("Expected nil value for key5, got %v", v)
+		}
+		return true
+	})
+
+	// Test Values with nil
+	values := m.Values()
+	hasNil := false
+	for _, v := range values {
+		if v == nil {
+			hasNil = true
+			break
+		}
+	}
+	if !hasNil {
+		t.Error("Expected at least one nil value in Values slice")
+	}
+
+	// Test Copy with nil values
+	copied := m.Copy()
+	if val, ok := copied["key5"]; !ok || val != nil {
+		t.Errorf("Expected copied map to have nil value for key5, got %v", val)
+	}
+
+	// Test iterators with nil values
+	for k, v := range m.Iter() {
+		if k == "key5" && v != nil {
+			t.Errorf("Expected nil value for key5 in iterator, got %v", v)
+		}
+	}
+
+	// Test IterKeys with nil values
+	for k := range m.IterKeys() {
+		if k == "key5" {
+			// Key should exist even if value is nil
+			if !m.Has(k) {
+				t.Error("Expected key5 to exist in IterKeys")
+			}
+		}
+	}
+
+	// Test IterValues with nil values
+	hasNilInValues := false
+	for v := range m.IterValues() {
+		if v == nil {
+			hasNilInValues = true
+			break
+		}
+	}
+	if !hasNilInValues {
+		t.Error("Expected at least one nil value in IterValues")
+	}
+}
+
+func TestSafeMap_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	var m abstract.SafeMap[string, *int]
+
+	// Test setting nil value
+	m.Set("nilkey", nil)
+
+	// Test Get with nil value
+	val := m.Get("nilkey")
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	// Test Lookup with nil value
+	val, ok := m.Lookup("nilkey")
+	if !ok || val != nil {
+		t.Errorf("Expected nil value and true, got %v and %v", val, ok)
+	}
+
+	// Test Has with nil value
+	if !m.Has("nilkey") {
+		t.Error("Expected key with nil value to exist")
+	}
+
+	// Test Pop with nil value
+	val = m.Pop("nilkey")
+	if val != nil {
+		t.Errorf("Expected popped nil value, got %v", val)
+	}
+
+	// Test SetIfNotPresent with nil
+	m.Set("key1", nil)
+	returnedVal := m.SetIfNotPresent("key1", &[]int{42}[0])
+	if returnedVal != nil {
+		t.Errorf("Expected existing nil value, got %v", returnedVal)
+	}
+
+	// Test Swap with nil
+	newVal := &[]int{100}[0]
+	oldVal := m.Swap("key1", newVal)
+	if oldVal != nil {
+		t.Errorf("Expected old nil value, got %v", oldVal)
+	}
+
+	// Test Change with nil
+	m.Set("key2", nil)
+	m.Change("key2", func(k string, v *int) *int {
+		if v == nil {
+			return &[]int{42}[0]
+		}
+		return v
+	})
+	if val := m.Get("key2"); val == nil || *val != 42 {
+		t.Errorf("Expected changed value 42, got %v", val)
+	}
+
+	// Test Transform with nil values
+	m.Set("key3", nil)
+	m.Set("key4", &[]int{10}[0])
+	m.Transform(func(k string, v *int) *int {
+		if v == nil {
+			return &[]int{0}[0]
+		}
+		return v
+	})
+
+	if val := m.Get("key3"); val == nil || *val != 0 {
+		t.Errorf("Expected transformed nil to 0, got %v", val)
+	}
+
+	// Test Range with nil values
+	m.Set("key5", nil)
+	m.Range(func(k string, v *int) bool {
+		if k == "key5" && v != nil {
+			t.Errorf("Expected nil value for key5, got %v", v)
+		}
+		return true
+	})
+
+	// Test concurrent access with nil values
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			key := "concurrent" + strconv.Itoa(i)
+			if i%2 == 0 {
+				m.Set(key, nil)
+			} else {
+				m.Set(key, &[]int{i}[0])
+			}
+
+			val := m.Get(key)
+			if i%2 == 0 && val != nil {
+				t.Errorf("Expected nil value for even index %d, got %v", i, val)
+			} else if i%2 == 1 && (val == nil || *val != i) {
+				t.Errorf("Expected value %d for odd index %d, got %v", i, i, val)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Test Copy with nil values
+	copied := m.Copy()
+	if val, ok := copied["key5"]; !ok || val != nil {
+		t.Errorf("Expected copied map to have nil value for key5, got %v", val)
+	}
+
+	// Test iterators with nil values
+	for k, v := range m.Iter() {
+		if k == "key5" && v != nil {
+			t.Errorf("Expected nil value for key5 in iterator, got %v", v)
+		}
+	}
+
+	// Test IterKeys with nil values
+	for k := range m.IterKeys() {
+		if k == "key5" {
+			// Key should exist even if value is nil
+			if !m.Has(k) {
+				t.Error("Expected key5 to exist in IterKeys")
+			}
+		}
+	}
+
+	// Test IterValues with nil values
+	hasNilInValues := false
+	for v := range m.IterValues() {
+		if v == nil {
+			hasNilInValues = true
+			break
+		}
+	}
+	if !hasNilInValues {
+		t.Error("Expected at least one nil value in IterValues")
+	}
+}
+
+func TestEntityMap_NilValues(t *testing.T) {
+	// Test with *testEntity as value type to allow nil
+	m := abstract.NewEntityMap[int, *testEntity]()
+
+	// Note: EntityMap methods like Set, SetManualOrder, AllOrdered, LookupByName, etc.
+	// are not designed to handle nil entities because they call methods on the entities.
+	// This is expected behavior. We test basic map operations that can handle nil values.
+
+	// Manually set nil entity to underlying map for testing
+	rawMap := m.Raw()
+	rawMap[0] = nil
+
+	// Test Get with nil entity
+	val := m.Get(0)
+	if val != nil {
+		t.Errorf("Expected nil entity, got %v", val)
+	}
+
+	// Test Has with nil entities
+	if !m.Has(0) {
+		t.Error("Expected key with nil entity to exist")
+	}
+
+	// Test Len with nil entities
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+
+	// Test basic operations that don't call entity methods
+	// Range can handle nil entities as long as we don't use them
+	m.Range(func(k int, v *testEntity) bool {
+		if k == 0 && v != nil {
+			t.Errorf("Expected nil entity for key 0, got %v", v)
+		}
+		return true
+	})
+}
+
+func TestSafeEntityMap_NilValues(t *testing.T) {
+	// Test with *testEntity as value type to allow nil
+	m := abstract.NewSafeEntityMap[int, *testEntity]()
+
+	// Note: EntityMap methods like Set, SetManualOrder, AllOrdered, LookupByName, etc.
+	// are not designed to handle nil entities because they call methods on the entities.
+	// This is expected behavior. We test basic map operations that can handle nil values.
+
+	// Manually set nil entity to underlying map for testing
+	rawMap := m.Raw()
+	rawMap[0] = nil
+
+	// Test Get with nil entity
+	val := m.Get(0)
+	if val != nil {
+		t.Errorf("Expected nil entity, got %v", val)
+	}
+
+	// Test Has with nil entities
+	if !m.Has(0) {
+		t.Error("Expected key with nil entity to exist")
+	}
+
+	// Test Len with nil entities
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+
+	// Test concurrent access with valid entities (not nil)
+	var wg sync.WaitGroup
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			entity := &testEntity{id: i, name: "test"}
+			m.Set(entity)
+
+			val := m.Get(i)
+			if val == nil || val.id != i {
+				t.Errorf("Expected entity with id %d, got %v", i, val)
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestOrderedPairs_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	var pairs abstract.OrderedPairs[int, *int]
+
+	// Test adding nil values
+	pairs.Add(1, nil)
+	pairs.Add(2, &[]int{42}[0])
+	pairs.Add(3, nil)
+
+	// Test Get with nil values
+	val := pairs.Get(1)
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	val = pairs.Get(2)
+	if val == nil || *val != 42 {
+		t.Errorf("Expected value 42, got %v", val)
+	}
+
+	// Test Keys with nil values
+	keys := pairs.Keys()
+	if len(keys) != 3 {
+		t.Errorf("Expected 3 keys, got %d", len(keys))
+	}
+
+	// Test Rand with nil values (should handle gracefully)
+	for i := 0; i < 10; i++ {
+		randVal := pairs.Rand()
+		// Should be either nil or pointer to 42
+		if randVal != nil && *randVal != 42 {
+			t.Errorf("Expected either nil or 42, got %v", randVal)
+		}
+	}
+}
+
+func TestSafeOrderedPairs_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	pairs := abstract.NewSafeOrderedPairs[int, *int]()
+
+	// Test adding nil values
+	pairs.Add(1, nil)
+	pairs.Add(2, &[]int{42}[0])
+	pairs.Add(3, nil)
+
+	// Test Get with nil values
+	val := pairs.Get(1)
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	val = pairs.Get(2)
+	if val == nil || *val != 42 {
+		t.Errorf("Expected value 42, got %v", val)
+	}
+
+	// Test concurrent access with nil values
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i%2 == 0 {
+				pairs.Add(i+10, nil)
+			} else {
+				pairs.Add(i+10, &[]int{i}[0])
+			}
+
+			val := pairs.Get(i + 10)
+			if i%2 == 0 && val != nil {
+				t.Errorf("Expected nil value for even index %d, got %v", i, val)
+			} else if i%2 == 1 && (val == nil || *val != i) {
+				t.Errorf("Expected value %d for odd index %d, got %v", i, i, val)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Test Rand with nil values (should handle gracefully)
+	for i := 0; i < 10; i++ {
+		randVal := pairs.Rand()
+		// Should be either nil or some integer pointer
+		if randVal != nil && *randVal < 0 {
+			t.Errorf("Expected non-negative value or nil, got %v", randVal)
+		}
+	}
+}
+
+func TestMapOfMaps_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	var m abstract.MapOfMaps[string, int, *int]
+
+	// Test setting nil values
+	m.Set("group1", 1, nil)
+	m.Set("group1", 2, &[]int{42}[0])
+	m.Set("group2", 1, nil)
+
+	// Test Get with nil values
+	val := m.Get("group1", 1)
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	val = m.Get("group1", 2)
+	if val == nil || *val != 42 {
+		t.Errorf("Expected value 42, got %v", val)
+	}
+
+	// Test Lookup with nil values
+	val, ok := m.Lookup("group1", 1)
+	if !ok || val != nil {
+		t.Errorf("Expected nil value and true, got %v and %v", val, ok)
+	}
+
+	// Test Has with nil values
+	if !m.Has("group1", 1) {
+		t.Error("Expected key with nil value to exist")
+	}
+
+	// Test Pop with nil values
+	val = m.Pop("group1", 1)
+	if val != nil {
+		t.Errorf("Expected popped nil value, got %v", val)
+	}
+
+	// Test SetIfNotPresent with nil
+	m.Set("group3", 1, nil)
+	returnedVal := m.SetIfNotPresent("group3", 1, &[]int{100}[0])
+	if returnedVal != nil {
+		t.Errorf("Expected existing nil value, got %v", returnedVal)
+	}
+
+	// Test Swap with nil
+	newVal := &[]int{200}[0]
+	oldVal := m.Swap("group3", 1, newVal)
+	if oldVal != nil {
+		t.Errorf("Expected old nil value, got %v", oldVal)
+	}
+
+	// Test Change with nil
+	m.Set("group4", 1, nil)
+	m.Change("group4", 1, func(outer string, inner int, v *int) *int {
+		if v == nil {
+			return &[]int{42}[0]
+		}
+		return v
+	})
+	if val := m.Get("group4", 1); val == nil || *val != 42 {
+		t.Errorf("Expected changed value 42, got %v", val)
+	}
+
+	// Test Transform with nil values
+	m.Set("group5", 1, nil)
+	m.Set("group5", 2, &[]int{10}[0])
+	m.Transform(func(outer string, inner int, v *int) *int {
+		if v == nil {
+			return &[]int{0}[0]
+		}
+		return v
+	})
+
+	if val := m.Get("group5", 1); val == nil || *val != 0 {
+		t.Errorf("Expected transformed nil to 0, got %v", val)
+	}
+
+	// Test Range with nil values
+	m.Set("group6", 1, nil)
+	m.Range(func(outer string, inner int, v *int) bool {
+		if outer == "group6" && inner == 1 && v != nil {
+			t.Errorf("Expected nil value for group6[1], got %v", v)
+		}
+		return true
+	})
+
+	// Test AllValues with nil
+	allValues := m.AllValues()
+	hasNil := false
+	for _, v := range allValues {
+		if v == nil {
+			hasNil = true
+			break
+		}
+	}
+	if !hasNil {
+		t.Error("Expected at least one nil value in AllValues")
+	}
+
+	// Test Copy with nil values
+	copied := m.Copy()
+	if val := copied["group6"][1]; val != nil {
+		t.Errorf("Expected copied map to have nil value for group6[1], got %v", val)
+	}
+
+	// Test SetMap with nil values
+	nilMap := map[int]*int{
+		10: nil,
+		20: &[]int{30}[0],
+	}
+	m.SetMap("nilGroup", nilMap)
+
+	if val := m.Get("nilGroup", 10); val != nil {
+		t.Errorf("Expected nil value for nilGroup[10], got %v", val)
+	}
+
+	// Test GetMap with nil values
+	retrievedMap := m.GetMap("nilGroup")
+	if retrievedMap[10] != nil {
+		t.Errorf("Expected nil value in retrieved map, got %v", retrievedMap[10])
+	}
+}
+
+func TestSafeMapOfMaps_NilValues(t *testing.T) {
+	// Test with *int as value type to allow nil
+	var m abstract.SafeMapOfMaps[string, int, *int]
+
+	// Test setting nil values
+	m.Set("group1", 1, nil)
+	m.Set("group1", 2, &[]int{42}[0])
+	m.Set("group2", 1, nil)
+
+	// Test Get with nil values
+	val := m.Get("group1", 1)
+	if val != nil {
+		t.Errorf("Expected nil value, got %v", val)
+	}
+
+	val = m.Get("group1", 2)
+	if val == nil || *val != 42 {
+		t.Errorf("Expected value 42, got %v", val)
+	}
+
+	// Test concurrent access with nil values
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			outerKey := "concurrent" + strconv.Itoa(i%5)
+			innerKey := i
+
+			if i%2 == 0 {
+				m.Set(outerKey, innerKey, nil)
+			} else {
+				m.Set(outerKey, innerKey, &[]int{i}[0])
+			}
+
+			val := m.Get(outerKey, innerKey)
+			if i%2 == 0 && val != nil {
+				t.Errorf("Expected nil value for even index %d, got %v", i, val)
+			} else if i%2 == 1 && (val == nil || *val != i) {
+				t.Errorf("Expected value %d for odd index %d, got %v", i, i, val)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Test Lookup with nil values
+	val, ok := m.Lookup("group1", 1)
+	if !ok || val != nil {
+		t.Errorf("Expected nil value and true, got %v and %v", val, ok)
+	}
+
+	// Test Transform with nil values
+	m.Set("group3", 1, nil)
+	m.Set("group3", 2, &[]int{10}[0])
+	m.Transform(func(outer string, inner int, v *int) *int {
+		if v == nil {
+			return &[]int{0}[0]
+		}
+		return v
+	})
+
+	if val := m.Get("group3", 1); val == nil || *val != 0 {
+		t.Errorf("Expected transformed nil to 0, got %v", val)
+	}
+
+	// Test Range with nil values
+	m.Set("group4", 1, nil)
+	m.Range(func(outer string, inner int, v *int) bool {
+		if outer == "group4" && inner == 1 && v != nil {
+			t.Errorf("Expected nil value for group4[1], got %v", v)
+		}
+		return true
+	})
+
+	// Test SetMap with nil values
+	nilMap := map[int]*int{
+		10: nil,
+		20: &[]int{30}[0],
+	}
+	m.SetMap("nilGroup", nilMap)
+
+	if val := m.Get("nilGroup", 10); val != nil {
+		t.Errorf("Expected nil value for nilGroup[10], got %v", val)
+	}
+
+	// Test GetMap with nil values
+	retrievedMap := m.GetMap("nilGroup")
+	if retrievedMap[10] != nil {
+		t.Errorf("Expected nil value in retrieved map, got %v", retrievedMap[10])
+	}
+}
+
+func TestMap_NilMapInitialization(t *testing.T) {
+	// Test that methods handle nil map initialization properly
+	var m *abstract.Map[string, int]
+
+	// These should not panic due to nil map initialization in methods
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	m = &abstract.Map[string, int]{}
+
+	// Test that methods initialize the map properly
+	m.Set("key1", 42)
+	if val := m.Get("key1"); val != 42 {
+		t.Errorf("Expected 42, got %d", val)
+	}
+
+	if !m.Has("key1") {
+		t.Error("Expected key to exist after Set")
+	}
+
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+}
+
+func TestSafeMap_NilMapInitialization(t *testing.T) {
+	// Test that methods handle nil map initialization properly
+	var m *abstract.SafeMap[string, int]
+
+	// These should not panic due to nil map initialization in methods
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	m = &abstract.SafeMap[string, int]{}
+
+	// Test that methods initialize the map properly
+	m.Set("key1", 42)
+	if val := m.Get("key1"); val != 42 {
+		t.Errorf("Expected 42, got %d", val)
+	}
+
+	if !m.Has("key1") {
+		t.Error("Expected key to exist after Set")
+	}
+
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+}
+
+func TestMapOfMaps_NilMapInitialization(t *testing.T) {
+	// Test that methods handle nil map initialization properly
+	var m *abstract.MapOfMaps[string, int, float64]
+
+	// These should not panic due to nil map initialization in methods
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	m = &abstract.MapOfMaps[string, int, float64]{}
+
+	// Test that methods initialize the map properly
+	m.Set("outer1", 1, 1.1)
+	if val := m.Get("outer1", 1); val != 1.1 {
+		t.Errorf("Expected 1.1, got %f", val)
+	}
+
+	if !m.Has("outer1", 1) {
+		t.Error("Expected key to exist after Set")
+	}
+
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+}
+
+func TestSafeMapOfMaps_NilMapInitialization(t *testing.T) {
+	// Test that methods handle nil map initialization properly
+	var m *abstract.SafeMapOfMaps[string, int, float64]
+
+	// These should not panic due to nil map initialization in methods
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	m = &abstract.SafeMapOfMaps[string, int, float64]{}
+
+	// Test that methods initialize the map properly
+	m.Set("outer1", 1, 1.1)
+	if val := m.Get("outer1", 1); val != 1.1 {
+		t.Errorf("Expected 1.1, got %f", val)
+	}
+
+	if !m.Has("outer1", 1) {
+		t.Error("Expected key to exist after Set")
+	}
+
+	if m.Len() != 1 {
+		t.Errorf("Expected length 1, got %d", m.Len())
+	}
+}
+
+// Tests for uninitialized maps (zero-value with nil items)
+
+func TestMap_UninitializedMethods(t *testing.T) {
+	// Test Get with uninitialized map
+	var m1 abstract.Map[string, int]
+	val := m1.Get("key")
+	if val != 0 {
+		t.Errorf("Expected default value 0, got %d", val)
+	}
+
+	// Test Lookup with uninitialized map
+	var m2 abstract.Map[string, int]
+	val, ok := m2.Lookup("key")
+	if ok || val != 0 {
+		t.Errorf("Expected default value 0 and false, got %d and %v", val, ok)
+	}
+
+	// Test Has with uninitialized map
+	var m3 abstract.Map[string, int]
+	if m3.Has("key") {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test Pop with uninitialized map
+	var m4 abstract.Map[string, int]
+	val = m4.Pop("key")
+	if val != 0 {
+		t.Errorf("Expected default value 0, got %d", val)
+	}
+
+	// Test Set with uninitialized map
+	var m5 abstract.Map[string, int]
+	m5.Set("key", 42)
+	if m5.Get("key") != 42 {
+		t.Errorf("Expected 42 after Set on uninitialized map, got %d", m5.Get("key"))
+	}
+
+	// Test SetIfNotPresent with uninitialized map
+	var m6 abstract.Map[string, int]
+	val = m6.SetIfNotPresent("key", 42)
+	if val != 42 {
+		t.Errorf("Expected 42 from SetIfNotPresent on uninitialized map, got %d", val)
+	}
+
+	// Test Swap with uninitialized map
+	var m7 abstract.Map[string, int]
+	old := m7.Swap("key", 42)
+	if old != 0 {
+		t.Errorf("Expected default value 0 from Swap on uninitialized map, got %d", old)
+	}
+
+	// Test Delete with uninitialized map
+	var m8 abstract.Map[string, int]
+	deleted := m8.Delete("key")
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized map")
+	}
+
+	// Test Len with uninitialized map
+	var m9 abstract.Map[string, int]
+	if m9.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized map, got %d", m9.Len())
+	}
+
+	// Test IsEmpty with uninitialized map
+	var m10 abstract.Map[string, int]
+	if !m10.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized map")
+	}
+
+	// Test Keys with uninitialized map
+	var m11 abstract.Map[string, int]
+	keys := m11.Keys()
+	if len(keys) != 0 {
+		t.Errorf("Expected empty keys slice, got length %d", len(keys))
+	}
+
+	// Test Values with uninitialized map
+	var m12 abstract.Map[string, int]
+	values := m12.Values()
+	if len(values) != 0 {
+		t.Errorf("Expected empty values slice, got length %d", len(values))
+	}
+
+	// Test Change with uninitialized map
+	var m13 abstract.Map[string, int]
+	m13.Change("key", func(k string, v int) int { return v + 1 })
+	if m13.Get("key") != 1 {
+		t.Errorf("Expected 1 from Change on uninitialized map, got %d", m13.Get("key"))
+	}
+
+	// Test Transform with uninitialized map
+	var m14 abstract.Map[string, int]
+	m14.Transform(func(k string, v int) int { return v + 1 })
+	if m14.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized map, got %d", m14.Len())
+	}
+
+	// Test Range with uninitialized map
+	var m15 abstract.Map[string, int]
+	called := false
+	result := m15.Range(func(k string, v int) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized map")
+	}
+
+	// Test Copy with uninitialized map
+	var m16 abstract.Map[string, int]
+	copied := m16.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Raw with uninitialized map
+	var m17 abstract.Map[string, int]
+	raw := m17.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test Clear with uninitialized map
+	var m18 abstract.Map[string, int]
+	m18.Clear()
+	if m18.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized map, got %d", m18.Len())
+	}
+
+	// Test IterKeys with uninitialized map
+	var m19 abstract.Map[string, int]
+	count := 0
+	for range m19.IterKeys() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from IterKeys on uninitialized map, got %d", count)
+	}
+
+	// Test IterValues with uninitialized map
+	var m20 abstract.Map[string, int]
+	count = 0
+	for range m20.IterValues() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from IterValues on uninitialized map, got %d", count)
+	}
+
+	// Test Iter with uninitialized map
+	var m21 abstract.Map[string, int]
+	count = 0
+	for range m21.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from Iter on uninitialized map, got %d", count)
+	}
+}
+
+func TestSafeMap_UninitializedMethods(t *testing.T) {
+	// Test Get with uninitialized map
+	var m1 abstract.SafeMap[string, int]
+	val := m1.Get("key")
+	if val != 0 {
+		t.Errorf("Expected default value 0, got %d", val)
+	}
+
+	// Test Lookup with uninitialized map
+	var m2 abstract.SafeMap[string, int]
+	val, ok := m2.Lookup("key")
+	if ok || val != 0 {
+		t.Errorf("Expected default value 0 and false, got %d and %v", val, ok)
+	}
+
+	// Test Has with uninitialized map
+	var m3 abstract.SafeMap[string, int]
+	if m3.Has("key") {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test Pop with uninitialized map
+	var m4 abstract.SafeMap[string, int]
+	val = m4.Pop("key")
+	if val != 0 {
+		t.Errorf("Expected default value 0, got %d", val)
+	}
+
+	// Test Set with uninitialized map
+	var m5 abstract.SafeMap[string, int]
+	m5.Set("key", 42)
+	if m5.Get("key") != 42 {
+		t.Errorf("Expected 42 after Set on uninitialized map, got %d", m5.Get("key"))
+	}
+
+	// Test SetIfNotPresent with uninitialized map
+	var m6 abstract.SafeMap[string, int]
+	val = m6.SetIfNotPresent("key", 42)
+	if val != 42 {
+		t.Errorf("Expected 42 from SetIfNotPresent on uninitialized map, got %d", val)
+	}
+
+	// Test Swap with uninitialized map
+	var m7 abstract.SafeMap[string, int]
+	old := m7.Swap("key", 42)
+	if old != 0 {
+		t.Errorf("Expected default value 0 from Swap on uninitialized map, got %d", old)
+	}
+
+	// Test Delete with uninitialized map
+	var m8 abstract.SafeMap[string, int]
+	deleted := m8.Delete("key")
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized map")
+	}
+
+	// Test Len with uninitialized map
+	var m9 abstract.SafeMap[string, int]
+	if m9.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized map, got %d", m9.Len())
+	}
+
+	// Test IsEmpty with uninitialized map
+	var m10 abstract.SafeMap[string, int]
+	if !m10.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized map")
+	}
+
+	// Test Keys with uninitialized map
+	var m11 abstract.SafeMap[string, int]
+	keys := m11.Keys()
+	if len(keys) != 0 {
+		t.Errorf("Expected empty keys slice, got length %d", len(keys))
+	}
+
+	// Test Values with uninitialized map
+	var m12 abstract.SafeMap[string, int]
+	values := m12.Values()
+	if len(values) != 0 {
+		t.Errorf("Expected empty values slice, got length %d", len(values))
+	}
+
+	// Test Change with uninitialized map
+	var m13 abstract.SafeMap[string, int]
+	m13.Change("key", func(k string, v int) int { return v + 1 })
+	if m13.Get("key") != 1 {
+		t.Errorf("Expected 1 from Change on uninitialized map, got %d", m13.Get("key"))
+	}
+
+	// Test Transform with uninitialized map
+	var m14 abstract.SafeMap[string, int]
+	m14.Transform(func(k string, v int) int { return v + 1 })
+	if m14.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized map, got %d", m14.Len())
+	}
+
+	// Test Range with uninitialized map
+	var m15 abstract.SafeMap[string, int]
+	called := false
+	result := m15.Range(func(k string, v int) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized map")
+	}
+
+	// Test Copy with uninitialized map
+	var m16 abstract.SafeMap[string, int]
+	copied := m16.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Clear with uninitialized map
+	var m17 abstract.SafeMap[string, int]
+	m17.Clear()
+	if m17.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized map, got %d", m17.Len())
+	}
+
+	// Test Refill with uninitialized map
+	var m18 abstract.SafeMap[string, int]
+	m18.Refill(map[string]int{"key": 42})
+	if m18.Get("key") != 42 {
+		t.Errorf("Expected 42 after Refill on uninitialized map, got %d", m18.Get("key"))
+	}
+
+	// Test Raw with uninitialized map
+	var m19 abstract.SafeMap[string, int]
+	raw := m19.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test IterKeys with uninitialized map
+	var m20 abstract.SafeMap[string, int]
+	count := 0
+	for range m20.IterKeys() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from IterKeys on uninitialized map, got %d", count)
+	}
+
+	// Test IterValues with uninitialized map
+	var m21 abstract.SafeMap[string, int]
+	count = 0
+	for range m21.IterValues() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from IterValues on uninitialized map, got %d", count)
+	}
+
+	// Test Iter with uninitialized map
+	var m22 abstract.SafeMap[string, int]
+	count = 0
+	for range m22.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from Iter on uninitialized map, got %d", count)
+	}
+}
+
+func TestEntityMap_UninitializedMethods(t *testing.T) {
+	// Note: Most EntityMap methods cannot be tested with zero-value because
+	// the embedded Map would be nil, causing panics. We test the basic embedded methods
+	// that would work if the Map were initialized.
+
+	// These tests will panic as expected because the embedded Map is nil,
+	// which demonstrates that EntityMap requires proper initialization
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic when calling methods on zero-value EntityMap")
+		}
+	}()
+
+	var m abstract.EntityMap[int, *testEntity]
+	// This should panic because the embedded Map is nil
+	_ = m.Len()
+}
+
+func TestSafeEntityMap_UninitializedMethods(t *testing.T) {
+	// Note: Most SafeEntityMap methods cannot be tested with zero-value because
+	// the embedded SafeMap would be nil, causing panics. We test the basic embedded methods
+	// that would work if the SafeMap were initialized.
+
+	// These tests will panic as expected because the embedded SafeMap is nil,
+	// which demonstrates that SafeEntityMap requires proper initialization
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic when calling methods on zero-value SafeEntityMap")
+		}
+	}()
+
+	var m abstract.SafeEntityMap[int, *testEntity]
+	// This should panic because the embedded SafeMap is nil
+	_ = m.Len()
+}
+
+func TestOrderedPairs_UninitializedMethods(t *testing.T) {
+	// Test Add with uninitialized OrderedPairs
+	var m1 abstract.OrderedPairs[int, string]
+	m1.Add(1, "one")
+	val := m1.Get(1)
+	if val != "one" {
+		t.Errorf("Expected 'one', got %s", val)
+	}
+
+	// Test Get with uninitialized OrderedPairs
+	var m2 abstract.OrderedPairs[int, string]
+	val = m2.Get(1)
+	if val != "" {
+		t.Errorf("Expected empty string, got %s", val)
+	}
+
+	// Test Keys with uninitialized OrderedPairs
+	var m3 abstract.OrderedPairs[int, string]
+	keys := m3.Keys()
+	if keys != nil {
+		t.Errorf("Expected nil keys slice, got %v", keys)
+	}
+
+	// Test Rand with uninitialized OrderedPairs
+	var m4 abstract.OrderedPairs[int, string]
+	val = m4.Rand()
+	if val != "" {
+		t.Errorf("Expected empty string from Rand on empty OrderedPairs, got %s", val)
+	}
+
+	// Test RandKey with uninitialized OrderedPairs
+	var m5 abstract.OrderedPairs[int, string]
+	key := m5.RandKey()
+	if key != 0 {
+		t.Errorf("Expected 0 from RandKey on empty OrderedPairs, got %d", key)
+	}
+}
+
+func TestSafeOrderedPairs_UninitializedMethods(t *testing.T) {
+	// Note: SafeOrderedPairs methods cannot be tested with zero-value because
+	// the embedded OrderedPairs would be nil, causing panics.
+
+	// These tests will panic as expected because the embedded OrderedPairs is nil,
+	// which demonstrates that SafeOrderedPairs requires proper initialization
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic when calling methods on zero-value SafeOrderedPairs")
+		}
+	}()
+
+	var m abstract.SafeOrderedPairs[int, string]
+	// This should panic because the embedded OrderedPairs is nil
+	m.Add(1, "one")
+}
+
+func TestMapOfMaps_UninitializedMethods(t *testing.T) {
+	// Test Get with uninitialized map
+	var m1 abstract.MapOfMaps[string, int, float64]
+	val := m1.Get("group", 1)
+	if val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+
+	// Test GetMap with uninitialized map
+	var m2 abstract.MapOfMaps[string, int, float64]
+	innerMap := m2.GetMap("group")
+	if innerMap != nil {
+		t.Errorf("Expected nil inner map, got %v", innerMap)
+	}
+
+	// Test Lookup with uninitialized map
+	var m3 abstract.MapOfMaps[string, int, float64]
+	val, ok := m3.Lookup("group", 1)
+	if ok || val != 0.0 {
+		t.Errorf("Expected default value 0.0 and false, got %f and %v", val, ok)
+	}
+
+	// Test LookupMap with uninitialized map
+	var m4 abstract.MapOfMaps[string, int, float64]
+	innerMap, ok = m4.LookupMap("group")
+	if ok || innerMap != nil {
+		t.Errorf("Expected nil inner map and false, got %v and %v", innerMap, ok)
+	}
+
+	// Test Has with uninitialized map
+	var m5 abstract.MapOfMaps[string, int, float64]
+	if m5.Has("group", 1) {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test HasMap with uninitialized map
+	var m6 abstract.MapOfMaps[string, int, float64]
+	if m6.HasMap("group") {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test Pop with uninitialized map
+	var m7 abstract.MapOfMaps[string, int, float64]
+	val = m7.Pop("group", 1)
+	if val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+
+	// Test PopMap with uninitialized map
+	var m8 abstract.MapOfMaps[string, int, float64]
+	innerMap = m8.PopMap("group")
+	if innerMap != nil {
+		t.Errorf("Expected nil inner map, got %v", innerMap)
+	}
+
+	// Test Set with uninitialized map
+	var m9 abstract.MapOfMaps[string, int, float64]
+	m9.Set("group", 1, 1.1)
+	if m9.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after Set on uninitialized map, got %f", m9.Get("group", 1))
+	}
+
+	// Test SetMap with uninitialized map
+	var m10 abstract.MapOfMaps[string, int, float64]
+	testInnerMap := map[int]float64{1: 1.1, 2: 2.2}
+	m10.SetMap("group", testInnerMap)
+	if m10.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after SetMap on uninitialized map, got %f", m10.Get("group", 1))
+	}
+
+	// Test SetIfNotPresent with uninitialized map
+	var m11 abstract.MapOfMaps[string, int, float64]
+	val = m11.SetIfNotPresent("group", 1, 1.1)
+	if val != 1.1 {
+		t.Errorf("Expected 1.1 from SetIfNotPresent on uninitialized map, got %f", val)
+	}
+
+	// Test Swap with uninitialized map
+	var m12 abstract.MapOfMaps[string, int, float64]
+	old := m12.Swap("group", 1, 1.1)
+	if old != 0.0 {
+		t.Errorf("Expected default value 0.0 from Swap on uninitialized map, got %f", old)
+	}
+
+	// Test Delete with uninitialized map
+	var m13 abstract.MapOfMaps[string, int, float64]
+	deleted := m13.Delete("group", 1)
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized map")
+	}
+
+	// Test DeleteMap with uninitialized map
+	var m14 abstract.MapOfMaps[string, int, float64]
+	deleted = m14.DeleteMap("group")
+	if deleted {
+		t.Error("Expected false from DeleteMap on uninitialized map")
+	}
+
+	// Test Len with uninitialized map
+	var m15 abstract.MapOfMaps[string, int, float64]
+	if m15.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized map, got %d", m15.Len())
+	}
+
+	// Test OuterLen with uninitialized map
+	var m16 abstract.MapOfMaps[string, int, float64]
+	if m16.OuterLen() != 0 {
+		t.Errorf("Expected outer length 0 for uninitialized map, got %d", m16.OuterLen())
+	}
+
+	// Test IsEmpty with uninitialized map
+	var m17 abstract.MapOfMaps[string, int, float64]
+	if !m17.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized map")
+	}
+
+	// Test OuterKeys with uninitialized map
+	var m18 abstract.MapOfMaps[string, int, float64]
+	outerKeys := m18.OuterKeys()
+	if len(outerKeys) != 0 {
+		t.Errorf("Expected empty outer keys slice, got length %d", len(outerKeys))
+	}
+
+	// Test AllKeys with uninitialized map
+	var m19 abstract.MapOfMaps[string, int, float64]
+	allKeys := m19.AllKeys()
+	if len(allKeys) != 0 {
+		t.Errorf("Expected empty all keys slice, got length %d", len(allKeys))
+	}
+
+	// Test AllValues with uninitialized map
+	var m20 abstract.MapOfMaps[string, int, float64]
+	allValues := m20.AllValues()
+	if len(allValues) != 0 {
+		t.Errorf("Expected empty all values slice, got length %d", len(allValues))
+	}
+
+	// Test Change with uninitialized map
+	var m21 abstract.MapOfMaps[string, int, float64]
+	m21.Change("group", 1, func(outer string, inner int, v float64) float64 { return v + 1.0 })
+	if m21.Get("group", 1) != 1.0 {
+		t.Errorf("Expected 1.0 from Change on uninitialized map, got %f", m21.Get("group", 1))
+	}
+
+	// Test Transform with uninitialized map
+	var m22 abstract.MapOfMaps[string, int, float64]
+	m22.Transform(func(outer string, inner int, v float64) float64 { return v + 1.0 })
+	if m22.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized map, got %d", m22.Len())
+	}
+
+	// Test Range with uninitialized map
+	var m23 abstract.MapOfMaps[string, int, float64]
+	called := false
+	result := m23.Range(func(outer string, inner int, v float64) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized map")
+	}
+
+	// Test Copy with uninitialized map
+	var m24 abstract.MapOfMaps[string, int, float64]
+	copied := m24.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Raw with uninitialized map
+	var m25 abstract.MapOfMaps[string, int, float64]
+	raw := m25.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test Clear with uninitialized map
+	var m26 abstract.MapOfMaps[string, int, float64]
+	m26.Clear()
+	if m26.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized map, got %d", m26.Len())
+	}
+
+	// Test Refill with uninitialized map
+	var m27 abstract.MapOfMaps[string, int, float64]
+	refillData := map[string]map[int]float64{"group": {1: 1.1}}
+	m27.Refill(refillData)
+	if m27.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after Refill on uninitialized map, got %f", m27.Get("group", 1))
+	}
+}
+
+func TestSafeMapOfMaps_UninitializedMethods(t *testing.T) {
+	// Test Get with uninitialized map
+	var m1 abstract.SafeMapOfMaps[string, int, float64]
+	val := m1.Get("group", 1)
+	if val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+
+	// Test GetMap with uninitialized map
+	var m2 abstract.SafeMapOfMaps[string, int, float64]
+	innerMap := m2.GetMap("group")
+	if innerMap != nil {
+		t.Errorf("Expected nil inner map, got %v", innerMap)
+	}
+
+	// Test Lookup with uninitialized map
+	var m3 abstract.SafeMapOfMaps[string, int, float64]
+	val, ok := m3.Lookup("group", 1)
+	if ok || val != 0.0 {
+		t.Errorf("Expected default value 0.0 and false, got %f and %v", val, ok)
+	}
+
+	// Test LookupMap with uninitialized map
+	var m4 abstract.SafeMapOfMaps[string, int, float64]
+	innerMap, ok = m4.LookupMap("group")
+	if ok || innerMap != nil {
+		t.Errorf("Expected nil inner map and false, got %v and %v", innerMap, ok)
+	}
+
+	// Test Has with uninitialized map
+	var m5 abstract.SafeMapOfMaps[string, int, float64]
+	if m5.Has("group", 1) {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test HasMap with uninitialized map
+	var m6 abstract.SafeMapOfMaps[string, int, float64]
+	if m6.HasMap("group") {
+		t.Error("Expected false for uninitialized map")
+	}
+
+	// Test Pop with uninitialized map
+	var m7 abstract.SafeMapOfMaps[string, int, float64]
+	val = m7.Pop("group", 1)
+	if val != 0.0 {
+		t.Errorf("Expected default value 0.0, got %f", val)
+	}
+
+	// Test PopMap with uninitialized map
+	var m8 abstract.SafeMapOfMaps[string, int, float64]
+	innerMap = m8.PopMap("group")
+	if innerMap != nil {
+		t.Errorf("Expected nil inner map, got %v", innerMap)
+	}
+
+	// Test Set with uninitialized map
+	var m9 abstract.SafeMapOfMaps[string, int, float64]
+	m9.Set("group", 1, 1.1)
+	if m9.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after Set on uninitialized map, got %f", m9.Get("group", 1))
+	}
+
+	// Test SetMap with uninitialized map
+	var m10 abstract.SafeMapOfMaps[string, int, float64]
+	testInnerMap := map[int]float64{1: 1.1, 2: 2.2}
+	m10.SetMap("group", testInnerMap)
+	if m10.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after SetMap on uninitialized map, got %f", m10.Get("group", 1))
+	}
+
+	// Test SetIfNotPresent with uninitialized map
+	var m11 abstract.SafeMapOfMaps[string, int, float64]
+	val = m11.SetIfNotPresent("group", 1, 1.1)
+	if val != 1.1 {
+		t.Errorf("Expected 1.1 from SetIfNotPresent on uninitialized map, got %f", val)
+	}
+
+	// Test Swap with uninitialized map
+	var m12 abstract.SafeMapOfMaps[string, int, float64]
+	old := m12.Swap("group", 1, 1.1)
+	if old != 0.0 {
+		t.Errorf("Expected default value 0.0 from Swap on uninitialized map, got %f", old)
+	}
+
+	// Test Delete with uninitialized map
+	var m13 abstract.SafeMapOfMaps[string, int, float64]
+	deleted := m13.Delete("group", 1)
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized map")
+	}
+
+	// Test DeleteMap with uninitialized map
+	var m14 abstract.SafeMapOfMaps[string, int, float64]
+	deleted = m14.DeleteMap("group")
+	if deleted {
+		t.Error("Expected false from DeleteMap on uninitialized map")
+	}
+
+	// Test Len with uninitialized map
+	var m15 abstract.SafeMapOfMaps[string, int, float64]
+	if m15.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized map, got %d", m15.Len())
+	}
+
+	// Test OuterLen with uninitialized map
+	var m16 abstract.SafeMapOfMaps[string, int, float64]
+	if m16.OuterLen() != 0 {
+		t.Errorf("Expected outer length 0 for uninitialized map, got %d", m16.OuterLen())
+	}
+
+	// Test IsEmpty with uninitialized map
+	var m17 abstract.SafeMapOfMaps[string, int, float64]
+	if !m17.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized map")
+	}
+
+	// Test OuterKeys with uninitialized map
+	var m18 abstract.SafeMapOfMaps[string, int, float64]
+	outerKeys := m18.OuterKeys()
+	if len(outerKeys) != 0 {
+		t.Errorf("Expected empty outer keys slice, got length %d", len(outerKeys))
+	}
+
+	// Test AllKeys with uninitialized map
+	var m19 abstract.SafeMapOfMaps[string, int, float64]
+	allKeys := m19.AllKeys()
+	if len(allKeys) != 0 {
+		t.Errorf("Expected empty all keys slice, got length %d", len(allKeys))
+	}
+
+	// Test AllValues with uninitialized map
+	var m20 abstract.SafeMapOfMaps[string, int, float64]
+	allValues := m20.AllValues()
+	if len(allValues) != 0 {
+		t.Errorf("Expected empty all values slice, got length %d", len(allValues))
+	}
+
+	// Test Change with uninitialized map
+	var m21 abstract.SafeMapOfMaps[string, int, float64]
+	m21.Change("group", 1, func(outer string, inner int, v float64) float64 { return v + 1.0 })
+	if m21.Get("group", 1) != 1.0 {
+		t.Errorf("Expected 1.0 from Change on uninitialized map, got %f", m21.Get("group", 1))
+	}
+
+	// Test Transform with uninitialized map
+	var m22 abstract.SafeMapOfMaps[string, int, float64]
+	m22.Transform(func(outer string, inner int, v float64) float64 { return v + 1.0 })
+	if m22.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized map, got %d", m22.Len())
+	}
+
+	// Test Range with uninitialized map
+	var m23 abstract.SafeMapOfMaps[string, int, float64]
+	called := false
+	result := m23.Range(func(outer string, inner int, v float64) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized map")
+	}
+
+	// Test Copy with uninitialized map
+	var m24 abstract.SafeMapOfMaps[string, int, float64]
+	copied := m24.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Raw with uninitialized map
+	var m25 abstract.SafeMapOfMaps[string, int, float64]
+	raw := m25.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test Clear with uninitialized map
+	var m26 abstract.SafeMapOfMaps[string, int, float64]
+	m26.Clear()
+	if m26.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized map, got %d", m26.Len())
+	}
+
+	// Test Refill with uninitialized map
+	var m27 abstract.SafeMapOfMaps[string, int, float64]
+	refillData := map[string]map[int]float64{"group": {1: 1.1}}
+	m27.Refill(refillData)
+	if m27.Get("group", 1) != 1.1 {
+		t.Errorf("Expected 1.1 after Refill on uninitialized map, got %f", m27.Get("group", 1))
 	}
 }
