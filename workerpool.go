@@ -216,7 +216,7 @@ func (p *SafeWorkerPool) Submit(task Task, timeout time.Duration) bool {
 }
 
 // SubmitWait adds a task to the pool and waits for its completion in a thread-safe manner.
-func (p *SafeWorkerPool) SubmitWait(task Task, timeout time.Duration) (interface{}, error) {
+func (p *SafeWorkerPool) SubmitWait(task Task, timeout time.Duration) (any, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.WorkerPool.SubmitWait(task, timeout)

@@ -18,7 +18,7 @@ func TestWorkerPoolBasicFunctionality(t *testing.T) {
 
 	// Test submitting a simple task
 	taskCompleted := false
-	task := func() (interface{}, error) {
+	task := func() (any, error) {
 		taskCompleted = true
 		return "success", nil
 	}
@@ -46,7 +46,7 @@ func TestWorkerPoolSubmitWait(t *testing.T) {
 	defer pool.Stop()
 
 	// Test SubmitWait with successful task
-	value, err := pool.SubmitWait(func() (interface{}, error) {
+	value, err := pool.SubmitWait(func() (any, error) {
 		time.Sleep(50 * time.Millisecond)
 		return 42, nil
 	}, time.Second)
@@ -60,7 +60,7 @@ func TestWorkerPoolSubmitWait(t *testing.T) {
 
 	// Test SubmitWait with error task
 	expectedErr := errors.New("task error")
-	value, err = pool.SubmitWait(func() (interface{}, error) {
+	value, err = pool.SubmitWait(func() (any, error) {
 		return nil, expectedErr
 	}, time.Second)
 
@@ -75,6 +75,15 @@ func TestWorkerPoolSubmitWait(t *testing.T) {
 	_, err = pool.SubmitWait(nil, time.Second)
 	if err == nil {
 		t.Error("Expected error for nil task, got nil")
+	}
+
+	// Test SubmitWait with timeout
+	_, err = pool.SubmitWait(func() (any, error) {
+		time.Sleep(100 * time.Millisecond)
+		return nil, nil
+	}, 10*time.Millisecond)
+	if err == nil {
+		t.Error("Expected error for timeout, got nil")
 	}
 }
 
@@ -101,7 +110,7 @@ func TestWorkerPoolConcurrency(t *testing.T) {
 
 	// Submit tasks
 	for i := 0; i < taskCount; i++ {
-		if !pool.Submit(func() (interface{}, error) {
+		if !pool.Submit(func() (any, error) {
 			atomic.AddInt32(&counter, 1)
 			time.Sleep(10 * time.Millisecond)
 			return nil, nil
