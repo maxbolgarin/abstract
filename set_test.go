@@ -335,3 +335,457 @@ func TestSafeSetSymmetricDifference(t *testing.T) {
 		t.Errorf("Expected symmetric difference length to be 6, got %d", symmetricDifference.Len())
 	}
 }
+
+// ===== UNINITIALIZED SET TESTS =====
+
+func TestSet_UninitializedMethods(t *testing.T) {
+	// Test Add with uninitialized set
+	var s1 abstract.Set[int]
+	s1.Add(1, 2, 3)
+	if s1.Len() != 3 {
+		t.Errorf("Expected length 3 after Add on uninitialized set, got %d", s1.Len())
+	}
+
+	// Test Has with uninitialized set
+	var s2 abstract.Set[int]
+	if s2.Has(1) {
+		t.Error("Expected false for uninitialized set")
+	}
+
+	// Test Delete with uninitialized set
+	var s3 abstract.Set[int]
+	deleted := s3.Delete(1)
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized set")
+	}
+
+	// Test Len with uninitialized set
+	var s4 abstract.Set[int]
+	if s4.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized set, got %d", s4.Len())
+	}
+
+	// Test IsEmpty with uninitialized set
+	var s5 abstract.Set[int]
+	if !s5.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized set")
+	}
+
+	// Test Values with uninitialized set
+	var s6 abstract.Set[int]
+	values := s6.Values()
+	if len(values) != 0 {
+		t.Errorf("Expected empty values slice, got length %d", len(values))
+	}
+
+	// Test Clear with uninitialized set
+	var s7 abstract.Set[int]
+	s7.Clear()
+	if s7.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized set, got %d", s7.Len())
+	}
+
+	// Test Transform with uninitialized set
+	var s8 abstract.Set[int]
+	s8.Transform(func(k int) int { return k + 1 })
+	if s8.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized set, got %d", s8.Len())
+	}
+
+	// Test Range with uninitialized set
+	var s9 abstract.Set[int]
+	called := false
+	result := s9.Range(func(k int) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized set")
+	}
+
+	// Test Raw with uninitialized set
+	var s10 abstract.Set[int]
+	raw := s10.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test Iter with uninitialized set
+	var s11 abstract.Set[int]
+	count := 0
+	for range s11.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from Iter on uninitialized set, got %d", count)
+	}
+
+	// Test Copy with uninitialized set
+	var s12 abstract.Set[int]
+	copied := s12.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Union with uninitialized set
+	var s13 abstract.Set[int]
+	other := map[int]struct{}{1: {}, 2: {}}
+	union := s13.Union(other)
+	if union.Len() != 2 {
+		t.Errorf("Expected union length 2, got %d", union.Len())
+	}
+
+	// Test Intersection with uninitialized set
+	var s14 abstract.Set[int]
+	intersection := s14.Intersection(other)
+	if intersection.Len() != 0 {
+		t.Errorf("Expected intersection length 0, got %d", intersection.Len())
+	}
+
+	// Test Difference with uninitialized set
+	var s15 abstract.Set[int]
+	difference := s15.Difference(other)
+	if difference.Len() != 0 {
+		t.Errorf("Expected difference length 0, got %d", difference.Len())
+	}
+
+	// Test SymmetricDifference with uninitialized set
+	var s16 abstract.Set[int]
+	symmetricDiff := s16.SymmetricDifference(other)
+	if symmetricDiff.Len() != 2 {
+		t.Errorf("Expected symmetric difference length 2, got %d", symmetricDiff.Len())
+	}
+}
+
+func TestSafeSet_UninitializedMethods(t *testing.T) {
+	// Test Add with uninitialized safe set
+	var s1 abstract.SafeSet[int]
+	s1.Add(1, 2, 3)
+	if s1.Len() != 3 {
+		t.Errorf("Expected length 3 after Add on uninitialized safe set, got %d", s1.Len())
+	}
+
+	// Test Has with uninitialized safe set
+	var s2 abstract.SafeSet[int]
+	if s2.Has(1) {
+		t.Error("Expected false for uninitialized safe set")
+	}
+
+	// Test Delete with uninitialized safe set
+	var s3 abstract.SafeSet[int]
+	deleted := s3.Delete(1)
+	if deleted {
+		t.Error("Expected false from Delete on uninitialized safe set")
+	}
+
+	// Test Len with uninitialized safe set
+	var s4 abstract.SafeSet[int]
+	if s4.Len() != 0 {
+		t.Errorf("Expected length 0 for uninitialized safe set, got %d", s4.Len())
+	}
+
+	// Test IsEmpty with uninitialized safe set
+	var s5 abstract.SafeSet[int]
+	if !s5.IsEmpty() {
+		t.Error("Expected true from IsEmpty on uninitialized safe set")
+	}
+
+	// Test Values with uninitialized safe set
+	var s6 abstract.SafeSet[int]
+	values := s6.Values()
+	if len(values) != 0 {
+		t.Errorf("Expected empty values slice, got length %d", len(values))
+	}
+
+	// Test Clear with uninitialized safe set
+	var s7 abstract.SafeSet[int]
+	s7.Clear()
+	if s7.Len() != 0 {
+		t.Errorf("Expected length 0 after Clear on uninitialized safe set, got %d", s7.Len())
+	}
+
+	// Test Transform with uninitialized safe set
+	var s8 abstract.SafeSet[int]
+	s8.Transform(func(k int) int { return k + 1 })
+	if s8.Len() != 0 {
+		t.Errorf("Expected no items after Transform on uninitialized safe set, got %d", s8.Len())
+	}
+
+	// Test Range with uninitialized safe set
+	var s9 abstract.SafeSet[int]
+	called := false
+	result := s9.Range(func(k int) bool {
+		called = true
+		return true
+	})
+	if !result || called {
+		t.Error("Expected Range to return true without calling function on uninitialized safe set")
+	}
+
+	// Test Raw with uninitialized safe set
+	var s10 abstract.SafeSet[int]
+	raw := s10.Raw()
+	if len(raw) != 0 {
+		t.Errorf("Expected empty raw map, got length %d", len(raw))
+	}
+
+	// Test Iter with uninitialized safe set
+	var s11 abstract.SafeSet[int]
+	count := 0
+	for range s11.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 iterations from Iter on uninitialized safe set, got %d", count)
+	}
+
+	// Test Copy with uninitialized safe set
+	var s12 abstract.SafeSet[int]
+	copied := s12.Copy()
+	if len(copied) != 0 {
+		t.Errorf("Expected empty copied map, got length %d", len(copied))
+	}
+
+	// Test Union with uninitialized safe set
+	var s13 abstract.SafeSet[int]
+	other := map[int]struct{}{1: {}, 2: {}}
+	union := s13.Union(other)
+	if union.Len() != 2 {
+		t.Errorf("Expected union length 2, got %d", union.Len())
+	}
+
+	// Test Intersection with uninitialized safe set
+	var s14 abstract.SafeSet[int]
+	intersection := s14.Intersection(other)
+	if intersection.Len() != 0 {
+		t.Errorf("Expected intersection length 0, got %d", intersection.Len())
+	}
+
+	// Test Difference with uninitialized safe set
+	var s15 abstract.SafeSet[int]
+	difference := s15.Difference(other)
+	if difference.Len() != 0 {
+		t.Errorf("Expected difference length 0, got %d", difference.Len())
+	}
+
+	// Test SymmetricDifference with uninitialized safe set
+	var s16 abstract.SafeSet[int]
+	symmetricDiff := s16.SymmetricDifference(other)
+	if symmetricDiff.Len() != 2 {
+		t.Errorf("Expected symmetric difference length 2, got %d", symmetricDiff.Len())
+	}
+}
+
+func TestSet_NilInitializationSequence(t *testing.T) {
+	// Test that multiple operations work correctly on an uninitialized set
+	var s abstract.Set[string]
+
+	// First operation should initialize the map
+	s.Add("first")
+	if !s.Has("first") {
+		t.Error("Expected 'first' to be present after Add")
+	}
+
+	// Subsequent operations should work normally
+	s.Add("second", "third")
+	if s.Len() != 3 {
+		t.Errorf("Expected length 3, got %d", s.Len())
+	}
+
+	// Test operations that return data
+	values := s.Values()
+	if len(values) != 3 {
+		t.Errorf("Expected 3 values, got %d", len(values))
+	}
+
+	// Test modification operations
+	deleted := s.Delete("second")
+	if !deleted {
+		t.Error("Expected Delete to return true")
+	}
+
+	if s.Len() != 2 {
+		t.Errorf("Expected length 2 after delete, got %d", s.Len())
+	}
+
+	// Test set operations
+	other := map[string]struct{}{"fourth": {}, "fifth": {}}
+	union := s.Union(other)
+	if union.Len() != 4 {
+		t.Errorf("Expected union length 4, got %d", union.Len())
+	}
+}
+
+func TestSafeSet_NilInitializationSequence(t *testing.T) {
+	// Test that multiple operations work correctly on an uninitialized safe set
+	var s abstract.SafeSet[string]
+
+	// First operation should initialize the map
+	s.Add("first")
+	if !s.Has("first") {
+		t.Error("Expected 'first' to be present after Add")
+	}
+
+	// Subsequent operations should work normally
+	s.Add("second", "third")
+	if s.Len() != 3 {
+		t.Errorf("Expected length 3, got %d", s.Len())
+	}
+
+	// Test operations that return data
+	values := s.Values()
+	if len(values) != 3 {
+		t.Errorf("Expected 3 values, got %d", len(values))
+	}
+
+	// Test modification operations
+	deleted := s.Delete("second")
+	if !deleted {
+		t.Error("Expected Delete to return true")
+	}
+
+	if s.Len() != 2 {
+		t.Errorf("Expected length 2 after delete, got %d", s.Len())
+	}
+
+	// Test set operations
+	other := map[string]struct{}{"fourth": {}, "fifth": {}}
+	union := s.Union(other)
+	if union.Len() != 4 {
+		t.Errorf("Expected union length 4, got %d", union.Len())
+	}
+}
+
+func TestSet_ConcurrentNilInitialization(t *testing.T) {
+	// Test that concurrent operations on uninitialized SafeSet work correctly
+	var s abstract.SafeSet[int]
+	var wg sync.WaitGroup
+
+	const numGoroutines = 50
+
+	// Test concurrent Add operations on uninitialized set
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			s.Add(i)
+		}(i)
+	}
+
+	wg.Wait()
+
+	if s.Len() != numGoroutines {
+		t.Errorf("Expected length %d after concurrent operations, got %d", numGoroutines, s.Len())
+	}
+
+	// Test concurrent read operations
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if !s.Has(i) {
+				t.Errorf("Expected item %d to be present", i)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+func TestSet_NilMapBehavior(t *testing.T) {
+	// Test that all methods properly handle nil items map
+	var s abstract.Set[int]
+
+	// Test that methods don't panic and properly initialize
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	// Each method should handle nil items and initialize properly
+	if s.Has(1) {
+		t.Error("Expected Has to return false for uninitialized set")
+	}
+
+	if s.Len() != 0 {
+		t.Error("Expected Len to return 0 for uninitialized set")
+	}
+
+	if !s.IsEmpty() {
+		t.Error("Expected IsEmpty to return true for uninitialized set")
+	}
+
+	values := s.Values()
+	if values == nil || len(values) != 0 {
+		t.Error("Expected Values to return empty slice for uninitialized set")
+	}
+
+	raw := s.Raw()
+	if raw == nil || len(raw) != 0 {
+		t.Error("Expected Raw to return empty map for uninitialized set")
+	}
+
+	copy := s.Copy()
+	if copy == nil || len(copy) != 0 {
+		t.Error("Expected Copy to return empty map for uninitialized set")
+	}
+
+	// Test that iterator works with empty set
+	count := 0
+	for range s.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Error("Expected Iter to yield no items for uninitialized set")
+	}
+}
+
+func TestSafeSet_NilMapBehavior(t *testing.T) {
+	// Test that all SafeSet methods properly handle nil items map
+	var s abstract.SafeSet[int]
+
+	// Test that methods don't panic and properly initialize
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected no panic, but got: %v", r)
+		}
+	}()
+
+	// Each method should handle nil items and initialize properly
+	if s.Has(1) {
+		t.Error("Expected Has to return false for uninitialized safe set")
+	}
+
+	if s.Len() != 0 {
+		t.Error("Expected Len to return 0 for uninitialized safe set")
+	}
+
+	if !s.IsEmpty() {
+		t.Error("Expected IsEmpty to return true for uninitialized safe set")
+	}
+
+	values := s.Values()
+	if values == nil || len(values) != 0 {
+		t.Error("Expected Values to return empty slice for uninitialized safe set")
+	}
+
+	raw := s.Raw()
+	if raw == nil || len(raw) != 0 {
+		t.Error("Expected Raw to return empty map for uninitialized safe set")
+	}
+
+	copy := s.Copy()
+	if copy == nil || len(copy) != 0 {
+		t.Error("Expected Copy to return empty map for uninitialized safe set")
+	}
+
+	// Test that iterator works with empty set
+	count := 0
+	for range s.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Error("Expected Iter to yield no items for uninitialized safe set")
+	}
+}
