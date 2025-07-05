@@ -194,7 +194,7 @@ func TestMemorizer_SetAndPop(t *testing.T) {
 func TestItoa(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
+		input    any
 		expected string
 	}{
 		{"Integer", 42, "42"},
@@ -380,8 +380,8 @@ func TestMax(t *testing.T) {
 func TestAbs(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
-		expected interface{}
+		input    any
+		expected any
 	}{
 		{"Positive Integer", 42, 42},
 		{"Negative Integer", -123, 123},
