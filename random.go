@@ -345,3 +345,55 @@ func ShuffleSlice[T any](slice []T) {
 		slice[i], slice[j] = slice[j], slice[i]
 	})
 }
+
+// GetRandomStringFast returns a non-cryptographically secure random string of the specified length.
+// This function uses a simple LCG (linear congruential generator) for performance reasons.
+//
+// Note: This function is NOT cryptographically secure and should only be used for non-security purposes.
+//
+// Parameters:
+//   - n: The length of the random string to generate
+//
+// Returns:
+//   - A random string of length n
+//
+// Example usage:
+//
+//	randomString := GetRandomStringFast(10)  // "a1b2c3d4e5"
+//	token := GetRandomStringFast(20)         // "f1e2d3c4b5a6..."
+func GetRandomStringFast(n int) string {
+	return string(GetRandomBytesFast(n))
+}
+
+// GetRandomBytesFast returns a non-cryptographically secure random byte slice of the specified length.
+// This function uses a simple LCG (linear congruential generator) for performance reasons.
+//
+// Note: This function is NOT cryptographically secure and should only be used for non-security purposes.
+//
+// Parameters:
+//   - n: The length of the random byte slice to generate
+//
+// Returns:
+//   - A random byte slice of length n
+//
+// Example usage:
+//
+//	randomBytes := GetRandomBytesFast(16)
+//	fmt.Printf("Random bytes: %x\n", randomBytes)
+func GetRandomBytesFast(n int) []byte {
+	if n <= 0 {
+		return nil
+	}
+	const (
+		a = 1664525
+		c = 1013904223
+	)
+	seed := uint32(time.Now().UnixNano())
+	out := make([]byte, n)
+	for i := 0; i < n; i++ {
+		seed = a*seed + c
+		out[i] = defaultAlphabet[(seed>>(i%24))&uint32(alphabetLen-1)]
+	}
+
+	return out
+}

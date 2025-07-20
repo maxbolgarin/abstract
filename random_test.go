@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/maxbolgarin/abstract"
 )
@@ -292,6 +293,201 @@ func TestShuffleSlice(t *testing.T) {
 		if counts[v] != 1 {
 			t.Errorf("Element %d appears %d times in shuffled slice, expected once", v, counts[v])
 		}
+	}
+}
+
+// TestGetRandomStringFast ensures that GetRandomStringFast returns a string of the requested length.
+func TestGetRandomStringFast(t *testing.T) {
+	const length = 10
+	result := abstract.GetRandomStringFast(length)
+
+	if len(result) != length {
+		t.Errorf("Expected length %d, got %d", length, len(result))
+	}
+
+	// Verify only hex chars are used (same as regular GetRandomString)
+	if !regexp.MustCompile(`^[0-9a-f]+$`).MatchString(result) {
+		t.Errorf("Result contains non-hex characters: %s", result)
+	}
+
+	// Test with zero length
+	zeroResult := abstract.GetRandomStringFast(0)
+	if zeroResult != "" {
+		t.Errorf("Expected empty string for length 0, got %s", zeroResult)
+	}
+
+	// Test with negative length
+	negativeResult := abstract.GetRandomStringFast(-1)
+	if negativeResult != "" {
+		t.Errorf("Expected empty string for negative length, got %s", negativeResult)
+	}
+}
+
+// TestGetRandomBytesFast ensures that GetRandomBytesFast returns a byte slice of the requested length.
+func TestGetRandomBytesFast(t *testing.T) {
+	const length = 10
+	result := abstract.GetRandomBytesFast(length)
+
+	if len(result) != length {
+		t.Errorf("Expected length %d, got %d", length, len(result))
+	}
+
+	// Verify only hex chars are used
+	for _, b := range result {
+		if !((b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')) {
+			t.Errorf("Result contains non-hex character: %c", b)
+		}
+	}
+
+	// Test with zero length
+	zeroResult := abstract.GetRandomBytesFast(0)
+	if zeroResult != nil {
+		t.Errorf("Expected nil for length 0, got %v", zeroResult)
+	}
+
+	// Test with negative length
+	negativeResult := abstract.GetRandomBytesFast(-1)
+	if negativeResult != nil {
+		t.Errorf("Expected nil for negative length, got %v", negativeResult)
+	}
+}
+
+// TestGetRandomStringFastConsistency ensures that GetRandomStringFast produces consistent results
+// for the same input length (though not necessarily the same string due to time-based seeding).
+func TestGetRandomStringFastConsistency(t *testing.T) {
+	const length = 8
+	results := make(map[string]bool)
+	iterations := 100
+
+	// Generate multiple strings and check they're all valid
+	for i := 0; i < iterations; i++ {
+		result := abstract.GetRandomStringFast(length)
+
+		if len(result) != length {
+			t.Errorf("Expected length %d, got %d", length, len(result))
+		}
+
+		// Verify hex characters
+		if !regexp.MustCompile(`^[0-9a-f]+$`).MatchString(result) {
+			t.Errorf("Result contains non-hex characters: %s", result)
+		}
+
+		results[result] = true
+	}
+
+	// With enough iterations, we should see some variety (though not guaranteed due to LCG)
+	if len(results) < iterations/10 {
+		t.Logf("Warning: Only %d unique strings generated out of %d iterations", len(results), iterations)
+	}
+}
+
+// TestGetRandomBytesFastConsistency ensures that GetRandomBytesFast produces consistent results
+// for the same input length.
+func TestGetRandomBytesFastConsistency(t *testing.T) {
+	const length = 8
+	results := make(map[string]bool)
+	iterations := 100
+
+	// Generate multiple byte slices and check they're all valid
+	for i := 0; i < iterations; i++ {
+		result := abstract.GetRandomBytesFast(length)
+
+		if len(result) != length {
+			t.Errorf("Expected length %d, got %d", length, len(result))
+		}
+
+		// Verify hex characters
+		for _, b := range result {
+			if !((b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')) {
+				t.Errorf("Result contains non-hex character: %c", b)
+			}
+		}
+
+		results[string(result)] = true
+	}
+
+	// With enough iterations, we should see some variety (though not guaranteed due to LCG)
+	if len(results) < iterations/10 {
+		t.Logf("Warning: Only %d unique byte slices generated out of %d iterations", len(results), iterations)
+	}
+}
+
+// TestGetRandomStringFastPerformance compares the performance characteristics
+// of the fast vs regular random string generation.
+func TestGetRandomStringFastPerformance(t *testing.T) {
+	const length = 100
+	const iterations = 1000
+
+	// Test fast version
+	fastStart := time.Now()
+	for i := 0; i < iterations; i++ {
+		abstract.GetRandomStringFast(length)
+	}
+	fastDuration := time.Since(fastStart)
+
+	// Test regular version
+	regularStart := time.Now()
+	for i := 0; i < iterations; i++ {
+		abstract.GetRandomString(length)
+	}
+	regularDuration := time.Since(regularStart)
+
+	// Log performance comparison
+	t.Logf("Fast version took %v for %d iterations", fastDuration, iterations)
+	t.Logf("Regular version took %v for %d iterations", regularDuration, iterations)
+	t.Logf("Fast version is %.2fx faster", float64(regularDuration)/float64(fastDuration))
+}
+
+// TestGetRandomBytesFastEdgeCases tests edge cases for GetRandomBytesFast.
+func TestGetRandomBytesFastEdgeCases(t *testing.T) {
+	// Test very large length
+	largeResult := abstract.GetRandomBytesFast(1000)
+	if len(largeResult) != 1000 {
+		t.Errorf("Expected length 1000, got %d", len(largeResult))
+	}
+
+	// Verify all bytes are valid hex characters
+	for i, b := range largeResult {
+		if !((b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')) {
+			t.Errorf("Byte at position %d is not a hex character: %c", i, b)
+		}
+	}
+
+	// Test length 1
+	singleResult := abstract.GetRandomBytesFast(1)
+	if len(singleResult) != 1 {
+		t.Errorf("Expected length 1, got %d", len(singleResult))
+	}
+
+	// Test that the single byte is a valid hex character
+	b := singleResult[0]
+	if !((b >= '0' && b <= '9') || (b >= 'a' && b <= 'f')) {
+		t.Errorf("Single byte is not a hex character: %c", b)
+	}
+}
+
+// TestGetRandomStringFastEdgeCases tests edge cases for GetRandomStringFast.
+func TestGetRandomStringFastEdgeCases(t *testing.T) {
+	// Test very large length
+	largeResult := abstract.GetRandomStringFast(1000)
+	if len(largeResult) != 1000 {
+		t.Errorf("Expected length 1000, got %d", len(largeResult))
+	}
+
+	// Verify all characters are valid hex characters
+	if !regexp.MustCompile(`^[0-9a-f]+$`).MatchString(largeResult) {
+		t.Errorf("Large result contains non-hex characters: %s", largeResult)
+	}
+
+	// Test length 1
+	singleResult := abstract.GetRandomStringFast(1)
+	if len(singleResult) != 1 {
+		t.Errorf("Expected length 1, got %d", len(singleResult))
+	}
+
+	// Test that the single character is a valid hex character
+	if !regexp.MustCompile(`^[0-9a-f]$`).MatchString(singleResult) {
+		t.Errorf("Single character is not a hex character: %s", singleResult)
 	}
 }
 
