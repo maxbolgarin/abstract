@@ -381,3 +381,136 @@ func TestTimeRemaining(t *testing.T) {
 		t.Errorf("After deadline, remaining time should be 0, got %v", timer.TimeRemaining())
 	}
 }
+
+func TestString(t *testing.T) {
+	// Test String method for a new timer
+	timer := abstract.StartTimer()
+	str := timer.String()
+
+	// String should not be empty
+	if str == "" {
+		t.Error("String() should not return empty string")
+	}
+
+	// String should end with "ms" for a new timer
+	if len(str) < 2 || str[len(str)-2:] != "ms" {
+		t.Errorf("Expected string ending with 'ms', got '%s'", str)
+	}
+
+	// Test String method after some time has elapsed
+	timer = abstract.StartTimer()
+	time.Sleep(100 * time.Millisecond)
+	str = timer.String()
+
+	// Should contain some numeric value
+	if str == "" {
+		t.Error("String() should not return empty string after elapsed time")
+	}
+
+	// Should end with "ms" for millisecond durations
+	if len(str) >= 2 && str[len(str)-2:] != "ms" {
+		t.Errorf("Expected string ending with 'ms', got '%s'", str)
+	}
+
+	// Test that String() returns the same as FormatShort()
+	expected := timer.FormatShort()
+	if str != expected {
+		t.Errorf("String() should return same as FormatShort(). Expected: %s, Got: %s", expected, str)
+	}
+}
+
+func TestNewTimer(t *testing.T) {
+	// Test creating timer with specific start time
+	startTime := time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)
+	timer := abstract.NewTimer(startTime)
+
+	// Timer should have the specified start time
+	if !timer.Time().Equal(startTime) {
+		t.Errorf("Expected start time %v, got %v", startTime, timer.Time())
+	}
+
+	// Timer should not be paused initially
+	if timer.IsPaused() {
+		t.Error("New timer should not be paused")
+	}
+
+	// Timer should have no laps initially
+	if len(timer.Laps()) != 0 {
+		t.Errorf("New timer should have no laps, got %d", len(timer.Laps()))
+	}
+
+	// Timer should have no deadline initially
+	if timer.IsExpired() {
+		t.Error("New timer should not be expired")
+	}
+
+	if timer.TimeRemaining() != 0 {
+		t.Errorf("New timer should have 0 time remaining, got %v", timer.TimeRemaining())
+	}
+}
+
+func TestNewTimerWithPastTime(t *testing.T) {
+	// Test creating timer with a past time
+	pastTime := time.Now().Add(-1 * time.Hour)
+	timer := abstract.NewTimer(pastTime)
+
+	// Timer should have the specified past start time
+	if !timer.Time().Equal(pastTime) {
+		t.Errorf("Expected start time %v, got %v", pastTime, timer.Time())
+	}
+
+	// Elapsed time should be positive (timer started in the past)
+	elapsed := timer.ElapsedTime()
+	if elapsed <= 0 {
+		t.Errorf("Timer with past start time should have positive elapsed time, got %v", elapsed)
+	}
+
+	// Should be approximately 1 hour (with some tolerance)
+	if elapsed < 59*time.Minute || elapsed > 61*time.Minute {
+		t.Errorf("Expected elapsed time around 1 hour, got %v", elapsed)
+	}
+}
+
+func TestNewTimerWithFutureTime(t *testing.T) {
+	// Test creating timer with a future time
+	futureTime := time.Now().Add(1 * time.Hour)
+	timer := abstract.NewTimer(futureTime)
+
+	// Timer should have the specified future start time
+	if !timer.Time().Equal(futureTime) {
+		t.Errorf("Expected start time %v, got %v", futureTime, timer.Time())
+	}
+
+	// Elapsed time should be negative (timer starts in the future)
+	elapsed := timer.ElapsedTime()
+	if elapsed >= 0 {
+		t.Errorf("Timer with future start time should have negative elapsed time, got %v", elapsed)
+	}
+
+	// Should be approximately -1 hour (with some tolerance)
+	if elapsed > -59*time.Minute || elapsed < -61*time.Minute {
+		t.Errorf("Expected elapsed time around -1 hour, got %v", elapsed)
+	}
+}
+
+func TestNewTimerEquality(t *testing.T) {
+	// Test that NewTimer and StartTimer create equivalent timers when given current time
+	now := time.Now()
+	timer1 := abstract.NewTimer(now)
+	timer2 := abstract.StartTimer()
+
+	// Allow small difference in start times (microseconds)
+	diff := timer2.Time().Sub(timer1.Time())
+	if diff < -10*time.Microsecond || diff > 10*time.Microsecond {
+		t.Errorf("Expected timers to have similar start times, got difference of %v", diff)
+	}
+
+	// Both timers should have same initial state
+	if timer1.IsPaused() != timer2.IsPaused() {
+		t.Error("Both timers should have same paused state")
+	}
+
+	if len(timer1.Laps()) != len(timer2.Laps()) {
+		t.Error("Both timers should have same number of laps")
+	}
+}

@@ -62,6 +62,42 @@ func StartTimer() Timer {
 	}
 }
 
+// NewTimer creates a new Timer with the specified start time.
+// This is useful for creating timers with a specific starting point.
+//
+// Parameters:
+//   - start: The time.Time when the timer should start
+//
+// Returns:
+//   - A new Timer instance with the specified start time
+//
+// Example usage:
+//
+//	startTime := time.Now()
+//	timer := NewTimer(startTime)
+//	fmt.Printf("Timer started at: %v\n", startTime)
+func NewTimer(start time.Time) Timer {
+	return Timer{
+		start: start,
+		laps:  make([]time.Time, 0),
+	}
+}
+
+// String returns a human-readable string representation of the elapsed time.
+// This is a convenience method that calls FormatShort() for easy output.
+//
+// Returns:
+//   - Human-readable formatted time string
+//
+// Example usage:
+//
+//	timer := StartTimer()
+//	time.Sleep(100 * time.Millisecond)
+//	fmt.Printf("Elapsed: %s\n", timer.String()) // "100ms"
+func (t Timer) String() string {
+	return t.FormatShort()
+}
+
 // Time returns the time when the timer was started.
 // This is useful for absolute time references and calculations.
 //
