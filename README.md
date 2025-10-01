@@ -312,40 +312,44 @@ err = waiterSet.Await(ctx) // Wait for all tasks
 ### Worker Pools
 
 ```go
-// Create worker pool
-pool := abstract.NewWorkerPool(5, 100) // 5 workers, queue capacity 100
+// Create generic worker pool
+pool := abstract.NewWorkerPoolV2[string](5, 100) // 5 workers, queue capacity 100
 pool.Start()
+defer pool.Stop()
 
 // Submit tasks
 for i := 0; i < 10; i++ {
     i := i // Capture loop variable
-    task := func() (any, error) {
+    task := func() (string, error) {
         return fmt.Sprintf("Task %d result", i), nil
     }
     
-    if !pool.Submit(task, time.Second) {
+    if !pool.Submit(task) {
         fmt.Println("Failed to submit task")
     }
 }
 
-// Process results
-go func() {
-    for result := range pool.Results() {
-        if result.Err != nil {
-            fmt.Printf("Task error: %v\n", result.Err)
-        } else {
-            fmt.Printf("Task result: %v\n", result.Value)
-        }
+// Fetch results (waits for all submitted tasks at call time)
+results, errors := pool.FetchResults(5 * time.Second)
+for i, result := range results {
+    if errors[i] != nil {
+        fmt.Printf("Task error: %v\n", errors[i])
+    } else {
+        fmt.Printf("Task result: %v\n", result)
     }
-}()
+}
 
-// Submit and wait for specific task
-result, err := pool.SubmitWait(func() (any, error) {
-    return "immediate result", nil
-}, time.Second)
+// Submit with timeout
+if !pool.Submit(task, 100*time.Millisecond) {
+    fmt.Println("Task submission timed out")
+}
 
-// Graceful shutdown
-pool.StopAndWait(5 * time.Second)
+// Monitor pool status
+fmt.Printf("Submitted: %d, Running: %d, Finished: %d\n", 
+    pool.Submitted(), pool.Running(), pool.Finished())
+
+// Fetch all results (including tasks submitted after call)
+allResults, allErrors := pool.FetchAllResults(10 * time.Second)
 ```
 
 ### Rate Limiting
@@ -704,7 +708,7 @@ go get -u github.com/maxbolgarin/abstract
 | `Memorizer[T]` | Thread-safe single value store | `Set`, `Get`, `Pop` |
 | `CSVTable` | CSV data manipulation | `Row`, `Find`, `AddRow`, `UpdateRow` |
 | `Timer` | Precise timing measurements | `ElapsedTime`, `Lap`, `Pause`, `Resume` |
-| `WorkerPool` | Concurrent task processing | `Submit`, `Results`, `Stop` |
+| `WorkerPoolV2[T]` | Generic concurrent task processing | `Submit`, `FetchResults`, `FetchAllResults`, `Submitted`, `Running`, `Finished`, `Stop` |
 | `RateProcessor` | Rate-limited processing | `AddTask`, `Wait` |
 | `Future[T]` | Async operation result | `Get`, `GetWithTimeout` |
 
