@@ -1393,7 +1393,7 @@ func TestFindRow(t *testing.T) {
 	}
 
 	// Find by multiple criteria
-	id, row = table.FindRow(map[string]string{"Age": "25", "City": "New York"})
+	id, _ = table.FindRow(map[string]string{"Age": "25", "City": "New York"})
 	if id == "" {
 		t.Errorf("Expected to find a row with Age=25 and City=New York")
 	}
