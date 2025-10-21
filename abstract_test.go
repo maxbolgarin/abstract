@@ -102,6 +102,132 @@ func TestOrderer_Clear(t *testing.T) {
 	}
 }
 
+func TestOrderer_Has(t *testing.T) {
+	orderer := abstract.NewOrderer(callback)
+
+	// Test empty orderer
+	if orderer.Has("a") {
+		t.Errorf("Expected Has('a') to be false for empty orderer")
+	}
+
+	// Add some items
+	testData := []string{"a", "b", "c"}
+	for _, item := range testData {
+		orderer.Add(item)
+	}
+
+	// Test existing items
+	for _, item := range testData {
+		if !orderer.Has(item) {
+			t.Errorf("Expected Has('%s') to be true", item)
+		}
+	}
+
+	// Test non-existing item
+	if orderer.Has("d") {
+		t.Errorf("Expected Has('d') to be false")
+	}
+}
+
+func TestOrderer_Len(t *testing.T) {
+	orderer := abstract.NewOrderer(callback)
+
+	// Test empty orderer
+	if orderer.Len() != 0 {
+		t.Errorf("Expected Len() to be 0 for empty orderer, got %d", orderer.Len())
+	}
+
+	// Add items one by one and check length
+	testData := []string{"a", "b", "c"}
+	for i, item := range testData {
+		orderer.Add(item)
+		expectedLen := i + 1
+		if orderer.Len() != expectedLen {
+			t.Errorf("Expected Len() to be %d after adding %s, got %d", expectedLen, item, orderer.Len())
+		}
+	}
+}
+
+func TestOrderer_IsEmpty(t *testing.T) {
+	orderer := abstract.NewOrderer(callback)
+
+	// Test empty orderer
+	if !orderer.IsEmpty() {
+		t.Errorf("Expected IsEmpty() to be true for empty orderer")
+	}
+
+	// Add an item
+	orderer.Add("a")
+	if orderer.IsEmpty() {
+		t.Errorf("Expected IsEmpty() to be false after adding item")
+	}
+
+	// Clear and test again
+	orderer.Clear()
+	if !orderer.IsEmpty() {
+		t.Errorf("Expected IsEmpty() to be true after clearing")
+	}
+}
+
+func TestOrderer_Rewrite(t *testing.T) {
+	orderer := abstract.NewOrderer(callback)
+
+	// Add initial items
+	initialData := []string{"a", "b", "c"}
+	for _, item := range initialData {
+		orderer.Add(item)
+	}
+
+	// Rewrite with new order (this adds to existing items)
+	rewriteData := []string{"d", "e", "f"}
+	orderer.Rewrite(rewriteData...)
+
+	// Check the order - should have both original and new items
+	order := orderer.Get()
+	expectedLength := len(initialData) + len(rewriteData)
+	if len(order) != expectedLength {
+		t.Errorf("Expected order length %d after rewrite, got %d", expectedLength, len(order))
+	}
+
+	// Check that original items still exist with their original indices
+	for i, item := range initialData {
+		if order[item] != i {
+			t.Errorf("Expected order[%s] to be %d after rewrite, got %d", item, i, order[item])
+		}
+	}
+
+	// Check that new items have indices starting from the length of original items
+	for i, item := range rewriteData {
+		expectedIndex := len(initialData) + i
+		if order[item] != expectedIndex {
+			t.Errorf("Expected order[%s] to be %d after rewrite, got %d", item, expectedIndex, order[item])
+		}
+	}
+}
+
+func TestOrderer_AddDuplicate(t *testing.T) {
+	orderer := abstract.NewOrderer(callback)
+
+	// Add the same item multiple times
+	orderer.Add("a", "a", "a")
+
+	// Should only have one item
+	if orderer.Len() != 1 {
+		t.Errorf("Expected Len() to be 1 after adding duplicate items, got %d", orderer.Len())
+	}
+
+	// Check that the item exists
+	if !orderer.Has("a") {
+		t.Errorf("Expected Has('a') to be true")
+	}
+
+	// Check the order
+	order := orderer.Get()
+	if order["a"] != 0 {
+		t.Errorf("Expected order['a'] to be 0, got %d", order["a"])
+	}
+}
+
 func TestNewMemorizer(t *testing.T) {
 	memorizer := abstract.NewMemorizer[int]()
 	if memorizer == nil {

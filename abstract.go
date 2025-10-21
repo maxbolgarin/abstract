@@ -188,16 +188,21 @@ func NewOrderer[T comparable](f func(order map[T]int)) *Orderer[T] {
 	}
 }
 
-// Add adds an item to the orderer with the next available order index.
+// Add adds items to the orderer with the next available order index.
 // The order index is determined by the current number of items in the orderer.
 // This method is thread-safe.
 //
 // Parameters:
-//   - id: The item to add to the orderer.
-func (m *Orderer[T]) Add(id T) {
+//   - ids: The items to add to the orderer.
+func (m *Orderer[T]) Add(ids ...T) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.order[id] = len(m.order)
+	for _, id := range ids {
+		if _, ok := m.order[id]; ok {
+			continue
+		}
+		m.order[id] = len(m.order)
+	}
 }
 
 // Get returns a copy of the current order mapping.
@@ -209,6 +214,54 @@ func (m *Orderer[T]) Get() map[T]int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.order
+}
+
+// Has returns true if the item is in the orderer.
+// This method is thread-safe.
+//
+// Parameters:
+//   - id: The item to check.
+//
+// Returns:
+//   - True if the item is in the orderer, false otherwise.
+func (m *Orderer[T]) Has(id T) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.order[id]
+	return ok
+}
+
+// Len returns the number of items in the orderer.
+// This method is thread-safe.
+//
+// Returns:
+//   - The number of items in the orderer.
+func (m *Orderer[T]) Len() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.order)
+}
+
+// IsEmpty returns true if the orderer is empty.
+// This method is thread-safe.
+//
+// Returns:
+//   - True if the orderer is empty, false otherwise.
+func (m *Orderer[T]) IsEmpty() bool {
+	return m.Len() == 0
+}
+
+// Rewrite rewrites the order of the items in the orderer.
+// This method is thread-safe.
+//
+// Parameters:
+//   - items: The items to rewrite the order of.
+func (m *Orderer[T]) Rewrite(items ...T) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, item := range items {
+		m.order[item] = len(m.order)
+	}
 }
 
 // Apply applies the current order using the callback function and then
