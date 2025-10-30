@@ -311,6 +311,118 @@ err = waiterSet.Await(ctx) // Wait for all tasks
 
 ### Worker Pools
 
+#### WorkerPool - Context-Aware Worker Pool (Recommended)
+
+For tasks that need context propagation, cancellation support, and return values.
+
+```go
+ctx := context.Background()
+
+// Create context-aware worker pool
+pool := abstract.NewWorkerPool[int](5, 100) // 5 workers, queue capacity 100
+pool.Start(ctx)
+defer pool.Shutdown(ctx)
+
+// Submit context-aware tasks
+for i := 0; i < 10; i++ {
+    i := i
+    ok := pool.Submit(ctx, func(ctx context.Context) (int, error) {
+        // Task can check context cancellation
+        select {
+        case <-ctx.Done():
+            return 0, ctx.Err()
+        default:
+            // Do work
+            return i * 2, nil
+        }
+    })
+    if !ok {
+        fmt.Println("Failed to submit task")
+    }
+}
+
+// Fetch results
+results, errs := pool.FetchResults(ctx)
+for i, result := range results {
+    if errs[i] != nil {
+        fmt.Printf("Task %d error: %v
+", i, errs[i])
+    } else {
+        fmt.Printf("Task %d result: %d
+", i, result)
+    }
+}
+
+// Monitor pool metrics
+fmt.Printf("Queue: %d, Running: %d, Finished: %d, Total: %d
+",
+    pool.TasksInQueue(), pool.OnFlyRunningTasks(), 
+    pool.FinishedTasks(), pool.TotalTasks())
+
+// Graceful shutdown with timeout
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+if err := pool.Shutdown(shutdownCtx); err != nil {
+    fmt.Printf("Shutdown error: %v
+", err)
+}
+```
+
+#### JobQueue - Fire-and-Forget Job Execution
+
+For side-effect tasks without return values (logging, notifications, cleanup, etc.).
+
+```go
+ctx := context.Background()
+
+// Create job queue
+queue := abstract.NewJobQueue(5, 100) // 5 workers, queue capacity 100
+queue.Start(ctx)
+defer queue.StopNoWait()
+
+// Submit fire-and-forget tasks
+for i := 0; i < 100; i++ {
+    i := i
+    ok := queue.Submit(ctx, func(ctx context.Context) {
+        // Perform side-effect work
+        log.Printf("Processing item %d", i)
+        
+        // Can still respect context cancellation
+        select {
+        case <-ctx.Done():
+            return
+        default:
+            // Continue work
+        }
+    })
+    if !ok {
+        fmt.Println("Failed to submit task")
+    }
+}
+
+// Wait for all tasks to complete
+waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+defer cancel()
+
+if err := queue.Wait(waitCtx); err != nil {
+    fmt.Printf("Wait error: %v
+", err)
+}
+
+// Monitor queue metrics
+fmt.Printf("Pending: %d, Running: %d, Finished: %d
+",
+    queue.PendingTasks(), queue.OnFlyRunningTasks(), queue.FinishedTasks())
+
+// Graceful shutdown
+if err := queue.Shutdown(ctx); err != nil {
+    fmt.Printf("Shutdown error: %v
+", err)
+}
+```
+
+#### WorkerPoolV2 - Simple Generic Worker Pool
+
 ```go
 // Create generic worker pool
 pool := abstract.NewWorkerPoolV2[string](5, 100) // 5 workers, queue capacity 100
@@ -333,9 +445,11 @@ for i := 0; i < 10; i++ {
 results, errors := pool.FetchResults(5 * time.Second)
 for i, result := range results {
     if errors[i] != nil {
-        fmt.Printf("Task error: %v\n", errors[i])
+        fmt.Printf("Task error: %v
+", errors[i])
     } else {
-        fmt.Printf("Task result: %v\n", result)
+        fmt.Printf("Task result: %v
+", result)
     }
 }
 
@@ -345,11 +459,164 @@ if !pool.Submit(task, 100*time.Millisecond) {
 }
 
 // Monitor pool status
-fmt.Printf("Submitted: %d, Running: %d, Finished: %d\n", 
+fmt.Printf("Submitted: %d, Running: %d, Finished: %d
+", 
     pool.Submitted(), pool.Running(), pool.Finished())
 
 // Fetch all results (including tasks submitted after call)
 allResults, allErrors := pool.FetchAllResults(10 * time.Second)
+```go
+// Create generic worker pool
+pool := abstract.NewWorkerPoolV2[string](5, 100) // 5 workers, queue capacity 100
+pool.Start()
+defer pool.Stop()
+
+// Submit tasks
+for i := 0; i < 10; i++ {
+    i := i // Capture loop variable
+    task := func() (string, error) {
+        return fmt.Sprintf("Task %d result", i), nil
+    }
+    
+    if !pool.Submit(task) {
+        fmt.Println("Failed to submit task")
+    }
+}
+
+// Fetch results (waits for all submitted tasks at call time)
+results, errors := pool.FetchResults(5 * time.Second)
+for i, result := range results {
+    if errors[i] != nil {
+        fmt.Printf("Task error: %v
+", errors[i])
+    } else {
+        fmt.Printf("Task result: %v
+", result)
+    }
+}
+
+// Submit with timeout
+if !pool.Submit(task, 100*time.Millisecond) {
+    fmt.Println("Task submission timed out")
+}
+
+// Monitor pool status
+fmt.Printf("Submitted: %d, Running: %d, Finished: %d
+", 
+    pool.Submitted(), pool.Running(), pool.Finished())
+
+// Fetch all results (including tasks submitted after call)
+allResults, allErrors := pool.FetchAllResults(10 * time.Second)
+```
+
+#### ContextPool - Context-Aware Worker Pool
+
+For tasks that need context propagation, cancellation support, and return values.
+
+```go
+ctx := context.Background()
+
+// Create context-aware worker pool
+pool := abstract.NewContextPool[int](5, 100) // 5 workers, queue capacity 100
+pool.Start(ctx)
+defer pool.Shutdown(ctx)
+
+// Submit context-aware tasks
+for i := 0; i < 10; i++ {
+    i := i
+    ok := pool.Submit(ctx, func(ctx context.Context) (int, error) {
+        // Task can check context cancellation
+        select {
+        case <-ctx.Done():
+            return 0, ctx.Err()
+        default:
+            // Do work
+            return i * 2, nil
+        }
+    })
+    if !ok {
+        fmt.Println("Failed to submit task")
+    }
+}
+
+// Fetch results
+results, errs := pool.FetchResults(ctx)
+for i, result := range results {
+    if errs[i] != nil {
+        fmt.Printf("Task %d error: %v
+", i, errs[i])
+    } else {
+        fmt.Printf("Task %d result: %d
+", i, result)
+    }
+}
+
+// Monitor pool metrics
+fmt.Printf("Queue: %d, Running: %d, Finished: %d, Total: %d
+",
+    pool.TasksInQueue(), pool.OnFlyRunningTasks(), 
+    pool.FinishedTasks(), pool.TotalTasks())
+
+// Graceful shutdown with timeout
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+if err := pool.Shutdown(shutdownCtx); err != nil {
+    fmt.Printf("Shutdown error: %v
+", err)
+}
+```
+
+#### ContextJobQueue - Fire-and-Forget Job Execution
+
+For side-effect tasks without return values (logging, notifications, cleanup, etc.).
+
+```go
+ctx := context.Background()
+
+// Create job queue
+queue := abstract.NewContextJobQueue(5, 100) // 5 workers, queue capacity 100
+queue.Start(ctx)
+defer queue.StopNoWait()
+
+// Submit fire-and-forget tasks
+for i := 0; i < 100; i++ {
+    i := i
+    ok := queue.Submit(ctx, func(ctx context.Context) {
+        // Perform side-effect work
+        log.Printf("Processing item %d", i)
+        
+        // Can still respect context cancellation
+        select {
+        case <-ctx.Done():
+            return
+        default:
+            // Continue work
+        }
+    })
+    if !ok {
+        fmt.Println("Failed to submit task")
+    }
+}
+
+// Wait for all tasks to complete
+waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+defer cancel()
+
+if err := queue.Wait(waitCtx); err != nil {
+    fmt.Printf("Wait error: %v
+", err)
+}
+
+// Monitor queue metrics
+fmt.Printf("Pending: %d, Running: %d, Finished: %d
+",
+    queue.PendingTasks(), queue.OnFlyRunningTasks(), queue.FinishedTasks())
+
+// Graceful shutdown
+if err := queue.Shutdown(ctx); err != nil {
+    fmt.Printf("Shutdown error: %v
+", err)
+}
 ```
 
 ### Rate Limiting
@@ -708,7 +975,9 @@ go get -u github.com/maxbolgarin/abstract
 | `Memorizer[T]` | Thread-safe single value store | `Set`, `Get`, `Pop` |
 | `CSVTable` | CSV data manipulation | `Row`, `Find`, `AddRow`, `UpdateRow` |
 | `Timer` | Precise timing measurements | `ElapsedTime`, `Lap`, `Pause`, `Resume` |
-| `WorkerPoolV2[T]` | Generic concurrent task processing | `Submit`, `FetchResults`, `FetchAllResults`, `Submitted`, `Running`, `Finished`, `Stop` |
+| `WorkerPool[T]` | Context-aware worker pool with results | `Start`, `Submit`, `FetchResults`, `FetchAllResults`, `Shutdown`, `TasksInQueue`, `OnFlyRunningTasks` |
+| `JobQueue` | Fire-and-forget job execution | `Start`, `Submit`, `Wait`, `Shutdown`, `TasksInQueue`, `OnFlyRunningTasks`, `PendingTasks` |
+| `WorkerPoolV2[T]` | Simple generic task processing | `Submit`, `FetchResults`, `FetchAllResults`, `Submitted`, `Running`, `Finished`, `Stop` |
 | `RateProcessor` | Rate-limited processing | `AddTask`, `Wait` |
 | `Future[T]` | Async operation result | `Get`, `GetWithTimeout` |
 
