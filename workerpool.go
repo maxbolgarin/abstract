@@ -2,250 +2,235 @@ package abstract
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/maxbolgarin/lang"
 )
 
-// Task represents a function that can be executed by workers in the pool.
-type Task func() (any, error)
-
-// Result represents the outcome of a task execution.
-type Result struct {
-	Value any
-	Err   error
+// result represents the outcome of a task execution.
+type result[T any] struct {
+	res T
+	err error
 }
 
-// WorkerPool manages a pool of workers that process tasks concurrently.
-type WorkerPool struct {
-	workers    int
-	tasks      chan Task
-	results    chan Result
-	wg         sync.WaitGroup
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	started    atomic.Bool
+// WorkerPool manages a pool of workers that process context-aware tasks concurrently.
+// It provides advanced metrics and graceful shutdown capabilities.
+type WorkerPool[T any] struct {
+	workers  int
+	tasks    chan func(ctx context.Context) (T, error)
+	results  chan result[T]
+	stopChan chan struct{}
+	wg       sync.WaitGroup
+
+	logger lang.Logger
+
+	isPoolStarted     atomic.Bool
+	onFlyRunningTasks atomic.Int64
+	tasksInQueue      atomic.Int64
+	finishedTasks     atomic.Int64
+	totalTasks        atomic.Int64
 }
 
-// NewWorkerPool creates a new worker pool with the specified number of workers and task queue capacity.
-func NewWorkerPool(workers, queueCapacity int) *WorkerPool {
+// NewWorkerPool creates a new context-aware worker pool with the specified number of workers and task queue capacity.
+func NewWorkerPool[T any](workers int, queueCapacity int, logger ...lang.Logger) *WorkerPool[T] {
 	if workers <= 0 {
 		workers = 1
 	}
 	if queueCapacity <= 0 {
-		queueCapacity = 100
+		queueCapacity = workers * 100
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	return &WorkerPool{
-		workers:    workers,
-		tasks:      make(chan Task, queueCapacity),
-		results:    make(chan Result, queueCapacity),
-		ctx:        ctx,
-		cancelFunc: cancel,
+	return &WorkerPool[T]{
+		workers:  workers,
+		tasks:    make(chan func(ctx context.Context) (T, error), queueCapacity),
+		results:  make(chan result[T], queueCapacity),
+		stopChan: make(chan struct{}),
+		logger:   lang.First(logger),
 	}
 }
 
 // Start launches the worker goroutines.
-func (p *WorkerPool) Start() {
-	if p.started.Load() {
+func (p *WorkerPool[T]) Start(ctx context.Context) {
+	if !p.isPoolStarted.CompareAndSwap(false, true) {
 		return
 	}
-
 	p.wg.Add(p.workers)
 	for range p.workers {
-		go p.worker()
+		lang.Go(p.logger, func() {
+			p.worker(ctx)
+		})
 	}
-	p.started.Store(true)
+}
+
+// Shutdown signals all workers to stop after completing their current tasks.
+// It waits for all in-flight and queued tasks to complete or until the context is done.
+func (p *WorkerPool[T]) Shutdown(ctx context.Context) error {
+	if !p.isPoolStarted.CompareAndSwap(true, false) {
+		return nil
+	}
+	close(p.stopChan)
+	close(p.tasks)
+
+	// Wait for all workers to finish
+	done := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// StopNoWait signals all workers to stop after completing their current tasks.
+// It does not wait for them to complete.
+func (p *WorkerPool[T]) StopNoWait() {
+	if !p.isPoolStarted.CompareAndSwap(true, false) {
+		return
+	}
+	close(p.stopChan)
+	close(p.tasks)
+}
+
+// Submit adds a task to the pool and returns true if the task was accepted.
+// Returns false if the pool is stopped or the context is done.
+func (p *WorkerPool[T]) Submit(ctx context.Context, task func(ctx context.Context) (T, error)) bool {
+	if task == nil {
+		return false
+	}
+	if !p.isPoolStarted.Load() {
+		return false
+	}
+
+	select {
+	case p.tasks <- task:
+		p.totalTasks.Add(1)
+		p.tasksInQueue.Add(1)
+		return true
+
+	case <-p.stopChan:
+		return false
+
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // worker is the goroutine that processes tasks.
-func (p *WorkerPool) worker() {
+func (p *WorkerPool[T]) worker(ctx context.Context) {
 	defer p.wg.Done()
 
 	for {
 		select {
-		case <-p.ctx.Done():
-			return
 		case task, ok := <-p.tasks:
 			if !ok {
+				// Channel closed, drain remaining tasks
 				return
 			}
-			value, err := task()
-			select {
-			case p.results <- Result{Value: value, Err: err}:
-			case <-p.ctx.Done():
-				return
-			}
+			p.tasksInQueue.Add(-1)
+
+			p.onFlyRunningTasks.Add(1)
+			value, err := task(ctx)
+			p.onFlyRunningTasks.Add(-1)
+
+			p.results <- result[T]{res: value, err: err}
+			p.finishedTasks.Add(1)
+
+		case <-ctx.Done():
+			return
+		case <-p.stopChan:
+			// Stop signal received, but continue processing pending tasks
+			// The tasks channel will be closed, causing the worker to exit after draining
 		}
 	}
 }
 
-// Submit adds a task to the pool and returns true if the task was accepted.
-// Returns false if the pool is stopped or the task queue is full and the timeout is reached.
-func (p *WorkerPool) Submit(task Task, timeout time.Duration) bool {
-	if task == nil {
-		return false
-	}
-	if p.IsStopped() {
-		return false
-	}
+// FetchResults fetches results from the pool.
+// It returns when the number of results is equal to the number of finished tasks AT THE TIME OF CALL!
+// If the context is done before all results are fetched, it returns the results and errors collected so far.
+// If some tasks are added after the call to FetchResults, they will not be fetched by this method (use FetchAllResults instead).
+func (p *WorkerPool[T]) FetchResults(ctx context.Context) ([]T, []error) {
+	// Capture the count before the loop to avoid race condition
+	expectedCount := int(p.finishedTasks.Load())
 
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+	results := make([]T, 0, expectedCount)
+	errors := make([]error, 0, expectedCount)
 
-	select {
-	case p.tasks <- task:
-		return true
-	case <-timer.C:
-		return false
-	case <-p.ctx.Done():
-		return false
-	}
-}
+	for range expectedCount {
+		select {
+		case result := <-p.results:
+			results = append(results, result.res)
+			errors = append(errors, result.err)
+			p.finishedTasks.Add(-1)
 
-// SubmitWait adds a task to the pool and waits for its completion, returning the result.
-// If the timeout is reached before the task can be submitted or completed, it returns an error.
-func (p *WorkerPool) SubmitWait(task Task, timeout time.Duration) (any, error) {
-	if task == nil {
-		return nil, errors.New("nil task submitted")
-	}
-
-	ctx, cancel := context.WithTimeout(p.ctx, timeout)
-	defer cancel()
-
-	// Submit the task
-	select {
-	case p.tasks <- task:
-	case <-ctx.Done():
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, errors.New("timeout submitting task")
+		case <-ctx.Done():
+			return results, errors
 		}
-		return nil, ctx.Err()
 	}
 
-	// Wait for the result
-	select {
-	case result := <-p.results:
-		return result.Value, result.Err
-	case <-ctx.Done():
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, errors.New("timeout waiting for result")
+	return results, errors
+}
+
+// FetchAllResults fetches all results from the pool.
+// It waits until all submitted tasks have finished and returns their results.
+// If the context is done before all results are fetched, it returns fetched results and errors.
+func (p *WorkerPool[T]) FetchAllResults(ctx context.Context) ([]T, []error) {
+	results := make([]T, 0)
+	errors := make([]error, 0)
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		// Check if all tasks are done
+		finished := int(p.finishedTasks.Load())
+		if finished == 0 && p.tasksInQueue.Load() == 0 && p.onFlyRunningTasks.Load() == 0 {
+			return results, errors
 		}
-		return nil, ctx.Err()
+
+		if finished > 0 {
+			// Fetch available results
+			resultsNow, errorsNow := p.FetchResults(ctx)
+			results = append(results, resultsNow...)
+			errors = append(errors, errorsNow...)
+		}
+
+		select {
+		case <-ctx.Done():
+			return results, errors
+		case <-ticker.C:
+			// Continue checking
+		}
 	}
 }
 
-// Results returns the channel that receives results from completed tasks.
-func (p *WorkerPool) Results() <-chan Result {
-	return p.results
+// TasksInQueue returns the number of tasks in the queue.
+func (p *WorkerPool[T]) TasksInQueue() int {
+	return int(p.tasksInQueue.Load())
 }
 
-// Stop signals all workers to stop after completing their current tasks.
-// It does not wait for them to complete.
-func (p *WorkerPool) Stop() {
-	if !p.started.Load() {
-		return
-	}
-
-	p.cancelFunc()
-	p.started.Store(false)
+// OnFlyRunningTasks returns the number of currently executing tasks.
+func (p *WorkerPool[T]) OnFlyRunningTasks() int {
+	return int(p.onFlyRunningTasks.Load())
 }
 
-// StopAndWait stops the worker pool and waits for all workers to complete.
-// It returns true if workers completed within the timeout, false otherwise.
-func (p *WorkerPool) StopAndWait(timeout time.Duration) bool {
-	p.Stop()
-
-	c := make(chan struct{})
-	go func() {
-		p.wg.Wait()
-		close(c)
-	}()
-
-	select {
-	case <-c:
-		return true
-	case <-time.After(timeout):
-		return false
-	}
+// FinishedTasks returns the number of finished tasks waiting to be fetched.
+func (p *WorkerPool[T]) FinishedTasks() int {
+	return int(p.finishedTasks.Load())
 }
 
-// Wait blocks until all workers have completed their tasks.
-// This should only be called after Stop() or when all tasks have been submitted.
-func (p *WorkerPool) Wait() {
-	p.wg.Wait()
+// TotalTasks returns the total number of tasks submitted to the pool.
+func (p *WorkerPool[T]) TotalTasks() int {
+	return int(p.totalTasks.Load())
 }
 
-// RunningWorkers returns the number of worker goroutines.
-func (p *WorkerPool) RunningWorkers() int {
-	return p.workers
-}
-
-// IsStopped returns true if the worker pool has been stopped.
-func (p *WorkerPool) IsStopped() bool {
-	return !p.started.Load()
-}
-
-// SafeWorkerPool is a thread-safe variant of WorkerPool.
-type SafeWorkerPool struct {
-	*WorkerPool
-	mu sync.RWMutex
-}
-
-// NewSafeWorkerPool creates a new SafeWorkerPool.
-func NewSafeWorkerPool(workers, queueCapacity int) *SafeWorkerPool {
-	return &SafeWorkerPool{
-		WorkerPool: NewWorkerPool(workers, queueCapacity),
-	}
-}
-
-// Start launches the worker goroutines in a thread-safe manner.
-func (p *SafeWorkerPool) Start() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.WorkerPool.Start()
-}
-
-// Submit adds a task to the pool in a thread-safe manner.
-func (p *SafeWorkerPool) Submit(task Task, timeout time.Duration) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.WorkerPool.Submit(task, timeout)
-}
-
-// SubmitWait adds a task to the pool and waits for its completion in a thread-safe manner.
-func (p *SafeWorkerPool) SubmitWait(task Task, timeout time.Duration) (any, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.WorkerPool.SubmitWait(task, timeout)
-}
-
-// Stop signals all workers to stop in a thread-safe manner.
-func (p *SafeWorkerPool) Stop() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.WorkerPool.Stop()
-}
-
-// StopAndWait stops the worker pool and waits for all workers to complete in a thread-safe manner.
-func (p *SafeWorkerPool) StopAndWait(timeout time.Duration) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.WorkerPool.StopAndWait(timeout)
-}
-
-// IsStopped returns true if the worker pool has been stopped in a thread-safe manner.
-func (p *SafeWorkerPool) IsStopped() bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.WorkerPool.IsStopped()
-}
-
-// RunningWorkers returns the number of worker goroutines in a thread-safe manner.
-func (p *SafeWorkerPool) RunningWorkers() int {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.WorkerPool.RunningWorkers()
+// IsPoolStarted returns true if the worker pool has been started.
+func (p *WorkerPool[T]) IsPoolStarted() bool {
+	return p.isPoolStarted.Load()
 }
